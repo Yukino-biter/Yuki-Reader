@@ -1,5 +1,6 @@
 .superpowers/
 .idea/
+docs/handover/
 node_modules/
 target/
 dist/
