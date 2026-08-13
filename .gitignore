@@ -1,5 +1,23 @@
 .superpowers/
+.idea/
 node_modules/
 target/
 dist/
 *.log
+*.log.err
+
+# frontend generated assets
+frontend/public/kuromoji-dict/
+frontend/dist/
+frontend/node_modules/
+
+# backend runtime artifacts
+backend/target/
+backend/data/
+backend/src/main/resources/static/
+scripts/data/
+
+# SQLite
+*.db
+*.db-wal
+*.db-shm

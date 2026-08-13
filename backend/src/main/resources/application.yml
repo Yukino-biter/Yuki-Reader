@@ -1,0 +1,30 @@
+server:
+  port: 8080
+  compression:
+    enabled: true
+
+spring:
+  application:
+    name: yuki-reader
+  datasource:
+    url: jdbc:sqlite:${yuki.db.path}
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      maximum-pool-size: 1
+
+yuki:
+  db:
+    path: ${YUKI_DB_PATH:./data/yuki.db}
+  jmdict:
+    xml: ${YUKI_JMDICT_XML:./data/jmdict/JMdict_e}
+    import-only: false
+    auto-import: ${YUKI_JMDICT_AUTO_IMPORT:true}
+  chat:
+    timeout-seconds: ${YUKI_CHAT_TIMEOUT_SECONDS:60}
+
+logging:
+  level:
+    root: INFO
+    org.springframework.web: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n"
