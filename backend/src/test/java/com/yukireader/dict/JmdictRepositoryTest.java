@@ -16,13 +16,15 @@ class JmdictRepositoryTest {
 
     private Path dbFile;
     private JmdictRepository repository;
+    private JdbcTemplate jdbc;
 
     @BeforeEach
     void setUp() throws Exception {
         dbFile = Files.createTempFile("yuki-repo-", ".db");
         Files.deleteIfExists(dbFile);
         DataSource ds = new DriverManagerDataSource("jdbc:sqlite:" + dbFile);
-        repository = new JmdictRepository(new JdbcTemplate(ds));
+        jdbc = new JdbcTemplate(ds);
+        repository = new JmdictRepository(jdbc);
     }
 
     @AfterEach
@@ -57,6 +59,42 @@ class JmdictRepositoryTest {
 
         assertThat(hits).hasSize(1);
         assertThat(hits.get(0).surface()).isEqualTo("私");
+    }
+
+    @Test
+    void findByWordReturnsChineseGlossesWhenPresent() {
+        repository.batchInsert(List.<Object[]>of(new Object[]{
+                "1000010", "私", "わたし", "名詞", "I; myself"}));
+        jdbc.update("UPDATE dict_entries SET glosses_zh = ? WHERE surface = ?",
+                "我；我自己", "私");
+
+        DictEntry entry = repository.findByWord("私").get(0);
+
+        assertThat(entry.glosses()).containsExactly("I; myself");
+        assertThat(entry.glossesZh()).containsExactly("我；我自己");
+    }
+
+    @Test
+    void existingDatabaseWithoutZhColumnGetsMigrated() throws Exception {
+        Path oldDb = Files.createTempFile("yuki-repo-old-", ".db");
+        Files.deleteIfExists(oldDb);
+        try (var conn = java.sql.DriverManager.getConnection("jdbc:sqlite:" + oldDb);
+             var st = conn.createStatement()) {
+            st.execute("CREATE TABLE dict_entries ("
+                    + "id INTEGER PRIMARY KEY AUTOINCREMENT, seq INTEGER,"
+                    + "surface TEXT NOT NULL, reading TEXT NOT NULL DEFAULT '',"
+                    + "pos TEXT NOT NULL DEFAULT '', glosses TEXT NOT NULL DEFAULT '')");
+        }
+        JdbcTemplate oldJdbc = new JdbcTemplate(
+                new DriverManagerDataSource("jdbc:sqlite:" + oldDb));
+        JmdictRepository migrated = new JmdictRepository(oldJdbc);
+
+        migrated.batchInsert(List.<Object[]>of(new Object[]{
+                "1000010", "私", "わたし", "名詞", "I; myself"}));
+
+        assertThat(migrated.findByWord("私")).hasSize(1);
+        assertThat(migrated.findByWord("私").get(0).glossesZh()).isEmpty();
+        Files.deleteIfExists(oldDb);
     }
 
     @Test

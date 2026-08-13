@@ -19,7 +19,8 @@ public class JmdictRepository {
             rs.getString("surface"),
             rs.getString("reading"),
             rs.getString("pos"),
-            splitGlosses(rs.getString("glosses")));
+            splitGlosses(rs.getString("glosses")),
+            splitGlosses(rs.getString("glosses_zh")));
 
     public JmdictRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
@@ -34,9 +35,11 @@ public class JmdictRepository {
                   surface TEXT NOT NULL,
                   reading TEXT NOT NULL DEFAULT '',
                   pos TEXT NOT NULL DEFAULT '',
-                  glosses TEXT NOT NULL DEFAULT ''
+                  glosses TEXT NOT NULL DEFAULT '',
+                  glosses_zh TEXT NOT NULL DEFAULT ''
                 )
                 """);
+        ensureGlossesZhColumn();
         jdbc.execute("""
                 CREATE TABLE IF NOT EXISTS jmdict_meta (
                   key TEXT PRIMARY KEY,
@@ -45,6 +48,15 @@ public class JmdictRepository {
                 """);
         jdbc.execute("PRAGMA journal_mode=WAL");
         jdbc.execute("PRAGMA synchronous=NORMAL");
+    }
+
+    /** Migration for databases created before the Chinese-gloss column existed. */
+    private void ensureGlossesZhColumn() {
+        List<String> cols = jdbc.query("PRAGMA table_info(dict_entries)",
+                (ResultSet rs, int rowNum) -> rs.getString("name"));
+        if (!cols.contains("glosses_zh")) {
+            jdbc.execute("ALTER TABLE dict_entries ADD COLUMN glosses_zh TEXT NOT NULL DEFAULT ''");
+        }
     }
 
     private static List<String> splitGlosses(String value) {
@@ -62,7 +74,7 @@ public class JmdictRepository {
 
     public List<DictEntry> findByWord(String word) {
         return jdbc.query("""
-                SELECT surface, reading, pos, glosses FROM dict_entries
+                SELECT surface, reading, pos, glosses, glosses_zh FROM dict_entries
                 WHERE surface = ? OR reading = ?
                 ORDER BY CASE WHEN surface = ? THEN 0 WHEN reading = ? THEN 1 ELSE 2 END, id
                 LIMIT 60

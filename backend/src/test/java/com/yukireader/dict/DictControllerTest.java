@@ -62,7 +62,9 @@ class DictControllerTest {
                 .andExpect(jsonPath("$[0].surface").value("私"))
                 .andExpect(jsonPath("$[0].reading").value("わたし"))
                 .andExpect(jsonPath("$[0].pos").value("名詞"))
-                .andExpect(jsonPath("$[0].glosses[0]").value("I; myself"));
+                .andExpect(jsonPath("$[0].glosses[0]").value("I; myself"))
+                .andExpect(jsonPath("$[0].glossesZh").isArray())
+                .andExpect(jsonPath("$[0].glossesZh").isEmpty());
     }
 
     @Test
