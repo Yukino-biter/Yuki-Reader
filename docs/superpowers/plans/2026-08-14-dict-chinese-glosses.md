@@ -104,8 +104,8 @@ private void ensureGlossesZhColumn() {
 ```
 
 流程：
-1. `SELECT DISTINCT glosses FROM dict_entries WHERE glosses <> ''`，应用 `--limit`。
-2. 载入 checkpoint JSON（`{释义串: 中文串}`），跳过已翻译。
+1. 读出全部行 `glosses`，按 `\u001F` 拆成单条释义后去重（约 27.9 万条），应用 `--limit`。
+2. 载入 checkpoint JSON（`{英文释义: 中文释义}`），跳过已翻译。
 3. `ThreadPoolExecutor` 并发 POST `{baseUrl}/chat/completions`，body 含 `model/messages/temperature=0`；429/5xx/超时指数退避重试 5 次；401 立即失败。
 4. 解析响应：优先按 `^\s*(\d+)\s*[.．、:：]\s*(.+)$` 序号映射；行数相等则按序 zip；否则整批重试。
 5. 每完成一批写入 checkpoint；完成后回写 DB：

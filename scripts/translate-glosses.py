@@ -1,9 +1,10 @@
 """Batch-translate JMDict English glosses into Chinese and store them in yuki.db.
 
-Reads unique ``dict_entries.glosses`` strings (U+001F-separated sense gloss
-groups), translates them via an OpenAI-compatible /chat/completions endpoint,
-checkpoints progress to a JSON file, then writes ``dict_entries.glosses_zh``
-for rows where every gloss in the group was translated.
+Reads the individual English glosses stored in ``dict_entries.glosses``
+(one U+001F-separated sense group per row), deduplicates them, translates each
+via an OpenAI-compatible /chat/completions endpoint, checkpoints progress to a
+JSON file, then writes ``dict_entries.glosses_zh`` for rows where every gloss
+in the group was translated (Chinese parts joined with U+001F, 1:1 aligned).
 
 Environment variables (API key is NEVER written to disk or logs):
     YUKI_ZH_API_KEY    required
@@ -204,8 +205,9 @@ def main():
 
     conn = sqlite3.connect(args.db)
     try:
-        glosses = [r[0] for r in conn.execute(
-            "SELECT DISTINCT glosses FROM dict_entries WHERE glosses != ''")]
+        rows = conn.execute(
+            "SELECT glosses FROM dict_entries WHERE glosses != ''").fetchall()
+        glosses = sorted({g for row in rows for g in row[0].split(SEP) if g})
     finally:
         conn.close()
     if args.limit > 0:
@@ -214,7 +216,7 @@ def main():
     checkpoint = load_checkpoint(args.checkpoint)
     todo = [g for g in glosses if g not in checkpoint]
     print(f"模型: {model}  端点: {base_url}/chat/completions")
-    print(f"唯一释义串: {len(glosses)}  已完成: {len(glosses) - len(todo)}  待翻译: {len(todo)}")
+    print(f"唯一英文释义: {len(glosses)}  已完成: {len(glosses) - len(todo)}  待翻译: {len(todo)}")
     if not todo:
         print("检查点已覆盖全部目标，跳过翻译，直接回写。")
         total, covered = write_back(args.db, checkpoint, args.skip_db)

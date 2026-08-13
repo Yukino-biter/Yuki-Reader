@@ -12,11 +12,11 @@
 
 1. **数据来源**：以现有 JMDict 英文释义为原文，用 LLM 批量离线翻译，结果存回 SQLite。JMDict 为 CC BY-SA 4.0，页脚署名已覆盖派生翻译内容。
 2. **翻译模型**：用户指定 `dsv4flash`，走 OpenAI 兼容 `/chat/completions`；API Key 只经环境变量传入脚本，不落盘、不进 git、不打日志。
-3. **翻译单元**：`dict_entries.glosses` 的唯一串（22.2 万条；`\u001F` 分隔的义项组，重复度高，比逐条释义 27.8 万更省）。
+3. **翻译单元**：`dict_entries.glosses` 中**逐条英文释义**（`\u001F` 分隔后去重，27.9 万条），保证中文与英文义项 1:1 对齐（`glosses_zh` 同样用 `\u001F` 连接）。
 4. **存储**：`dict_entries` 新增 `glosses_zh TEXT NOT NULL DEFAULT ''`（`\u001F` 分隔中文释义）。**整组义项全部翻译成功才写入**，否则留空（前端英文兜底）。老库通过 `PRAGMA table_info` 检查后 `ALTER TABLE` 迁移，幂等。
 5. **API**：`GET /api/dict` 每项新增 `glossesZh: [string]`（可为空数组）；`glosses`（英文）保留用于兜底。向后兼容。
 6. **前端**：词典卡中文优先；某义项组无中文时整组显示英文兜底；该词所有义项组都有中文时隐藏「中文释义」按钮；`dict-miss` 保留「用 LLM 解释这个词」。
-7. **脚本**：`scripts/translate-glosses.py`（Python 3 标准库：`sqlite3` + `urllib` + `concurrent.futures`；本机 Node 20 无 `node:sqlite`，避免引入原生依赖）：抽唯一释义串 → 分批翻译 → 断点续跑（`scripts/data/zh-checkpoint.json`，gitignored）→ 回写 DB。
+7. **脚本**：`scripts/translate-glosses.py`（Python 3 标准库：`sqlite3` + `urllib` + `concurrent.futures`；本机 Node 20 无 `node:sqlite`，避免引入原生依赖）：抽唯一英文释义 → 分批翻译 → 断点续跑（`scripts/data/zh-checkpoint.json`，gitignored）→ 回写 DB。
 8. **部署**：翻译结果在 `backend/data/yuki.db`（gitignored、不打进 jar）；服务器可拷贝 DB 或在服务器上运行脚本；jar 只含代码。
 
 ## 3. 数据流
@@ -28,7 +28,7 @@
 翻译流水线（一次性离线）：
 
 ```
-yuki.db 抽唯一 glosses 串
+yuki.db 抽唯一英文释义（逐条）
   → 分批 POST /chat/completions（dsv4flash，并发 8，429/5xx 退避重试）
   → 断点文件 zh-checkpoint.json（每批落盘）
   → 回写 dict_entries.glosses_zh（整组义项齐全才写）+ jmdict_meta 统计

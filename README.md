@@ -158,7 +158,7 @@ $env:YUKI_ZH_MODEL   = 'deepseek-v4-flash'   # 默认即此值；也可用其它
 python scripts/translate-glosses.py
 ```
 
-脚本从 `yuki.db` 抽取全部唯一英文释义串（约 22 万条），并发调用 `/chat/completions` 翻译，进度断点存 `scripts/data/zh-checkpoint.json`（gitignored，可断点续跑），完成后回写 `dict_entries.glosses_zh` 并记录统计到 `jmdict_meta`（`zh_translated_at/zh_rows/zh_covered_rows`）。API Key 只经环境变量传入，不落盘、不进 git、不打日志。数据存于 `backend/data/yuki.db`（gitignored），部署时拷贝该 DB 或在服务器上运行脚本即可，jar 不含翻译数据。
+脚本从 `yuki.db` 抽取全部唯一英文释义（按 `\u001F` 拆条后去重，约 28 万条），并发调用 `/chat/completions` 翻译，进度断点存 `scripts/data/zh-checkpoint.json`（gitignored，可断点续跑），完成后回写 `dict_entries.glosses_zh`（与英文义项 1:1 对齐）并记录统计到 `jmdict_meta`（`zh_translated_at/zh_rows/zh_covered_rows`）。API Key 只经环境变量传入，不落盘、不进 git、不打日志。数据存于 `backend/data/yuki.db`（gitignored），部署时拷贝该 DB 或在服务器上运行脚本即可，jar 不含翻译数据。
 
 ## 部署（VPS 单进程）
 
