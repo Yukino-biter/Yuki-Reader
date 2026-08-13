@@ -66,7 +66,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   loadBuiltInBook.mockResolvedValue(BOOK);
   tokenizeChapter.mockResolvedValue(TOKEN_ROWS);
-  lookupDict.mockResolvedValue([{ surface: '私', reading: 'わたし', pos: '名詞', glosses: ['I; myself'] }]);
+  lookupDict.mockResolvedValue([{ surface: '私', reading: 'わたし', pos: '名詞', glosses: ['I; myself'], glossesZh: [] }]);
   chat.mockResolvedValue('你好。');
 });
 
@@ -82,6 +82,29 @@ describe('App 冒烟测试', () => {
     await userEvent.click(screen.getAllByTestId('word-span')[0]);
     expect(lookupDict).toHaveBeenCalledWith('私');
     expect(await screen.findByText('I; myself')).toBeInTheDocument();
+  });
+
+  it('shows precomputed Chinese glosses and hides the translate button', async () => {
+    lookupDict.mockResolvedValue([{
+      surface: '私', reading: 'わたし', pos: '名詞',
+      glosses: ['I; myself'], glossesZh: ['我；我自己']
+    }]);
+    await openBuiltInBook();
+    await userEvent.click(screen.getAllByTestId('word-span')[0]);
+    expect(await screen.findByText('我；我自己')).toBeInTheDocument();
+    expect(screen.queryByText('I; myself')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '中文释义' })).not.toBeInTheDocument();
+  });
+
+  it('falls back to English glosses and keeps the button when no Chinese exists', async () => {
+    lookupDict.mockResolvedValue([{
+      surface: '私', reading: 'わたし', pos: '名詞',
+      glosses: ['I; myself'], glossesZh: []
+    }]);
+    await openBuiltInBook();
+    await userEvent.click(screen.getAllByTestId('word-span')[0]);
+    expect(await screen.findByText('I; myself')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '中文释义' })).toBeInTheDocument();
   });
 
   it('dictionary miss shows the LLM fallback button', async () => {
