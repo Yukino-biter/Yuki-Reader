@@ -21,7 +21,7 @@
   → 前端编码检测 → 分段落、分句
   → 按 12 句一批 POST /api/tokenize（后端 kuromoji-java 分词）
   → 返回 token 数组 → 按“句子容器 + 词 span”渲染
-点词      → GET  /api/dict → 侧栏词典卡
+点词      → GET  /api/dict → 侧栏词典卡（中文释义优先，英文兜底）
 点句/拖选 → POST /api/chat → 侧栏翻译卡
 ```
 
@@ -41,6 +41,7 @@ backend/                   Spring Boot 后端
 scripts/
   fetch-kokoro.mjs         从青空文庫抓取并转换《こころ》
   download-jmdict.ps1      从 EDRDG 官方源下载 JMDict（约 50MB，不入库）
+  translate-glosses.py     批量把 JMDict 英文释义翻译成中文并写回 yuki.db（BYOK，见下文）
 ```
 
 ## 构建与运行
@@ -133,16 +134,31 @@ npm --prefix frontend run dev   # http://localhost:5173，/api 代理到 8080
 
 ## 测试（规格 §14）
 
-- 前端：`npm --prefix frontend test` — 51 个用例
+- 前端：`npm --prefix frontend test` — 53 个用例
   - 编码检测（BOM/UTF-8 严格/SJIS/UTF-16/无法识别）
   - 分句规则（。！？…与闭括号、省略号连用）
   - 分词批处理/会话缓存/进度用例（mock 后端 API，不再加载真实 kuromoji 词典）
   - 阅读页渲染、点词/点句/拖选判定、侧栏状态切换冒烟
-- 后端：`mvn -f backend\pom.xml test` — 36 个用例（单元 21 + 集成 15，集成测试类以 `*Test` 命名以便 surefire 执行）
+  - 词典卡中文释义优先 / 英文兜底 / 「中文释义」按钮隐藏规则
+- 后端：`mvn -f backend\pom.xml test` — 38 个用例（单元 23 + 集成 15，集成测试类以 `*Test` 命名以便 surefire 执行）
   - `/api/dict` 集成测试（命中/读音命中/未命中/空词）
   - `/api/chat` 集成测试（成功/401/429/504/坏请求）
   - `/api/tokenize` 集成测试（成功/空数组/超批量/超长/畸形 JSON）
   - ChatService 错误映射、JMDict 导入器、仓储、TokenizerService（真实词典）单元测试
+
+## 词典中文释义（预计算，2026-08-14）
+
+点词后的词典卡默认显示中文释义：`dict_entries` 新增 `glosses_zh` 列（`\u001F` 分隔，与 `glosses` 义项一一对应），`GET /api/dict` 返回 `glossesZh` 数组；前端中文优先、缺失时英文兜底；某词所有义项都有中文时隐藏「中文释义」按钮（`dict-miss` 仍保留「用 LLM 解释这个词」）。
+
+生成方式为一次性离线批处理：
+
+```powershell
+$env:YUKI_ZH_API_KEY = '<你的 Key>'
+$env:YUKI_ZH_MODEL   = 'deepseek-v4-flash'   # 默认即此值；也可用其它 OpenAI 兼容模型
+python scripts/translate-glosses.py
+```
+
+脚本从 `yuki.db` 抽取全部唯一英文释义串（约 22 万条），并发调用 `/chat/completions` 翻译，进度断点存 `scripts/data/zh-checkpoint.json`（gitignored，可断点续跑），完成后回写 `dict_entries.glosses_zh` 并记录统计到 `jmdict_meta`（`zh_translated_at/zh_rows/zh_covered_rows`）。API Key 只经环境变量传入，不落盘、不进 git、不打日志。数据存于 `backend/data/yuki.db`（gitignored），部署时拷贝该 DB 或在服务器上运行脚本即可，jar 不含翻译数据。
 
 ## 部署（VPS 单进程）
 
@@ -167,6 +183,6 @@ npm --prefix frontend run dev   # http://localhost:5173，/api 代理到 8080
 - 章节：按“空行分隔 + 短标题行（一/二/上/中/下/第X章/纯数字/《》）”检测，检测不到则整书为一章；《こころ》用脚本按 上/中/下 + 编号节 显式生成 110 章。
 - 句末标点：`。！？…` 后紧跟闭括号（`」』）〉》］】`）时并入本句；连续句末标点（如 `……。`）并入同一句；省略号按规格视为句末标点（句中 `……` 会切句）。
 - 一次展示一章，进度 = 章节索引 + 章节内滚动百分比，存 localStorage。
-- JMDict 导入为每（表记 × 义项）一行，英文释义按义项分组展示。
+- JMDict 导入为每（表记 × 义项）一行，英文释义按义项分组展示；中文释义为预计算列 `glosses_zh`，整组义项全部翻译成功才写入，否则前端英文兜底。
 - `/api/chat` 透传 `{model, messages}`；`baseUrl` 自动补 `/chat/completions`（已以该后缀结尾则不重复追加）。
 - `/api/tokenize`：请求 `{"sentences":[...]}`，批量 1–50 句、单句 ≤2000 字符；响应 `{"rows":[[TokenRow,...],...]}` 与输入一一对应；`TokenRow` 字段 `surface/reading/basic/pos/clickable`，`reading`/`basic` 缺失时回退 `surface`，`clickable=false` 仅当词性以“記号”开头或表面词全为标点/空白。
