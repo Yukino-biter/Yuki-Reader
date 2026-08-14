@@ -161,6 +161,8 @@ python scripts/translate-glosses.py
 
 脚本从 `yuki.db` 抽取全部唯一英文释义（按 `\u001F` 拆条后去重，约 28 万条），并发调用 `/chat/completions` 翻译，进度断点存 `scripts/data/zh-checkpoint.json`（gitignored，可断点续跑），完成后回写 `dict_entries.glosses_zh`（与英文义项 1:1 对齐）并记录统计到 `jmdict_meta`（`zh_translated_at/zh_rows/zh_covered_rows`）。API Key 只经环境变量传入，不落盘、不进 git、不打日志。数据存于 `backend/data/yuki.db`（gitignored），部署时拷贝该 DB 或在服务器上运行脚本即可，jar 不含翻译数据。
 
+> 2026-08-14 已全量跑完：27.85 万条唯一释义全部翻译成功，`dict_entries` 32.9 万行 100% 覆盖中文（默认模型 `mimo-v2.5`）。
+
 ## 部署（VPS 单进程）
 
 1. 把 `backend/target/yuki-reader.jar` 与 `backend/data/`（含 `jmdict/JMdict_e`，或让服务器首次启动时自动导入）拷到服务器。

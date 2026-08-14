@@ -178,15 +178,15 @@ it('falls back to English glosses when no Chinese exists', async () => {
 
 ### Task 4: 数据批处理（全量）
 
-- [ ] **Step 1:** 后台启动全量翻译（`Start-Process -WindowStyle Hidden`，env 传 Key，日志到 `scripts/data/zh-translate.log(.err)`）。
-- [ ] **Step 2:** 轮询日志直至完成；抽查《こころ》常见词（私/学生/呼ぶ/心…）中文释义合理。
-- [ ] **Step 3:** 核对 `jmdict_meta` 统计与覆盖行数。
+- [x] **Step 1:** 后台启动全量翻译（`Start-Process -WindowStyle Hidden`，env 传 Key，日志到 `scripts/data/zh-translate.log(.err)`）。
+- [x] **Step 2:** 轮询日志直至完成；抽查《こころ》常见词（私/学生/呼ぶ/心…）中文释义合理。
+- [x] **Step 3:** 核对 `jmdict_meta` 统计与覆盖行数（329,302/329,302 = 100%）。
 
 ---
 
 ### Task 5: 文档与交付
 
-- [ ] **Step 1:** `README.md` 数据流/API/部署补充 `glossesZh` 与汉化脚本说明。
-- [ ] **Step 2:** 更新本地交接文档（§2/§5.6/§6.1/§10/§11 状态）。
-- [ ] **Step 3:** 全量回归：`npm --prefix frontend test` + `mvn -f backend\pom.xml test`；如交付产物则 `npm run build` + `mvn clean package`（先停 java）。
-- [ ] **Step 4:** 提交代码与文档（不含密钥/数据/检查点）。
+- [x] **Step 1:** `README.md` 数据流/API/部署补充 `glossesZh` 与汉化脚本说明。
+- [x] **Step 2:** 更新本地交接文档（§2/§5.6/§6.1/§10/§11 状态）。
+- [x] **Step 3:** 全量回归：`npm --prefix frontend test`（53）+ `mvn -f backend\pom.xml test`（38）；`npm run build` + `mvn clean package` 已出 jar。
+- [x] **Step 4:** 提交代码与文档（不含密钥/数据/检查点）。
