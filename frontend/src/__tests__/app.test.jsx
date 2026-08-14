@@ -66,7 +66,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   loadBuiltInBook.mockResolvedValue(BOOK);
   tokenizeChapter.mockResolvedValue(TOKEN_ROWS);
-  lookupDict.mockResolvedValue([{ surface: '私', reading: 'わたし', pos: '名詞', glosses: ['I; myself'], glossesZh: [] }]);
+  lookupDict.mockResolvedValue([{ surface: '私', reading: 'わたし', pos: '名詞', glosses: ['I; myself'], glossesZh: ['我；我自己'] }]);
   chat.mockResolvedValue('你好。');
 });
 
@@ -81,7 +81,7 @@ describe('App 冒烟测试', () => {
     await openBuiltInBook();
     await userEvent.click(screen.getAllByTestId('word-span')[0]);
     expect(lookupDict).toHaveBeenCalledWith('私');
-    expect(await screen.findByText('I; myself')).toBeInTheDocument();
+    expect(await screen.findByText('我；我自己')).toBeInTheDocument();
   });
 
   it('shows precomputed Chinese glosses and hides the translate button', async () => {
@@ -96,14 +96,14 @@ describe('App 冒烟测试', () => {
     expect(screen.queryByRole('button', { name: '中文释义' })).not.toBeInTheDocument();
   });
 
-  it('falls back to English glosses and keeps the button when no Chinese exists', async () => {
+  it('keeps the translate button but shows no English when Chinese glosses are missing', async () => {
     lookupDict.mockResolvedValue([{
       surface: '私', reading: 'わたし', pos: '名詞',
       glosses: ['I; myself'], glossesZh: []
     }]);
     await openBuiltInBook();
     await userEvent.click(screen.getAllByTestId('word-span')[0]);
-    expect(await screen.findByText('I; myself')).toBeInTheDocument();
+    expect(screen.queryByText('I; myself')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '中文释义' })).toBeInTheDocument();
   });
 
@@ -127,18 +127,18 @@ describe('App 冒烟测试', () => {
     );
     await openBuiltInBook();
     await userEvent.click(screen.getAllByTestId('word-span')[0]);
-    await screen.findByText('I; myself');
+    await screen.findByText('我；我自己');
 
     const sentence = screen.getAllByTestId('sentence')[0];
     fireEvent.click(sentence);
 
     expect(chat).toHaveBeenCalled();
     expect(await screen.findByText('你好。')).toBeInTheDocument();
-    expect(screen.queryByText('I; myself')).not.toBeInTheDocument();
+    expect(screen.queryByText('我；我自己')).not.toBeInTheDocument();
 
     // clicking a word again replaces the translation card (新操作替换旧结果)
     await userEvent.click(screen.getAllByTestId('word-span')[0]);
-    expect(await screen.findByText('I; myself')).toBeInTheDocument();
+    expect(await screen.findByText('我；我自己')).toBeInTheDocument();
     expect(screen.queryByText('你好。')).not.toBeInTheDocument();
   });
 

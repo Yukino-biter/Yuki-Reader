@@ -105,7 +105,7 @@ export default function Sidebar({ state, copied, onRetry, onCopy, onChinese, onO
 
   if (state.kind === 'dict') {
     const allChinese = state.entries.every(
-      (e) => e.glossesZh && e.glossesZh.length === e.glosses.length
+      (e) => e.glossesZh && e.glossesZh.length > 0
     );
     return (
       <Card title="词典">
@@ -120,9 +120,9 @@ export default function Sidebar({ state, copied, onRetry, onCopy, onChinese, onO
             {state.entries.map((entry, i) => (
               <li key={i} className="dict-entry">
                 {entry.pos && <span className="dict-pos">{entry.pos}</span>}
-                {entry.glosses.map((g, j) => (
-                  <span key={j} className={entry.glossesZh?.[j] ? 'dict-gloss zh' : 'dict-gloss'}>
-                    {entry.glossesZh?.[j] || g}
+                {entry.glossesZh?.map((z, j) => (
+                  <span key={j} className="dict-gloss zh">
+                    {z}
                   </span>
                 ))}
               </li>
