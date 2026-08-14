@@ -154,7 +154,8 @@ npm --prefix frontend run dev   # http://localhost:5173，/api 代理到 8080
 
 ```powershell
 $env:YUKI_ZH_API_KEY = '<你的 Key>'
-$env:YUKI_ZH_MODEL   = 'deepseek-v4-flash'   # 默认即此值；也可用其它 OpenAI 兼容模型
+$env:YUKI_ZH_BASE_URL = 'https://api.xiaomimimo.com/v1'   # 默认即此值（小米 MiMo）
+$env:YUKI_ZH_MODEL   = 'mimo-v2.5'   # 默认即此值；也可用其它 OpenAI 兼容模型
 python scripts/translate-glosses.py
 ```
 

@@ -8,8 +8,8 @@ in the group was translated (Chinese parts joined with U+001F, 1:1 aligned).
 
 Environment variables (API key is NEVER written to disk or logs):
     YUKI_ZH_API_KEY    required
-    YUKI_ZH_BASE_URL   default https://api.deepseek.com
-    YUKI_ZH_MODEL      default deepseek-v4-flash
+    YUKI_ZH_BASE_URL   default https://api.xiaomimimo.com/v1
+    YUKI_ZH_MODEL      default mimo-v2.5
 
 Usage:
     python scripts/translate-glosses.py --limit 3 --skip-db   # smoke test
@@ -200,8 +200,8 @@ def main():
     api_key = os.environ.get("YUKI_ZH_API_KEY", "").strip()
     if not api_key:
         sys.exit("缺少环境变量 YUKI_ZH_API_KEY")
-    base_url = os.environ.get("YUKI_ZH_BASE_URL", "https://api.deepseek.com").strip()
-    model = os.environ.get("YUKI_ZH_MODEL", "deepseek-v4-flash").strip()
+    base_url = os.environ.get("YUKI_ZH_BASE_URL", "https://api.xiaomimimo.com/v1").strip()
+    model = os.environ.get("YUKI_ZH_MODEL", "mimo-v2.5").strip()
 
     conn = sqlite3.connect(args.db)
     try:
