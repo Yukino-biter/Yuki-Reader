@@ -1,4 +1,5 @@
 import { toHiragana } from '../lib/kana.js';
+import { translatePos } from '../lib/pos.js';
 
 function Card({ title, children, actions }) {
   return (
@@ -117,16 +118,19 @@ export default function Sidebar({ state, copied, onRetry, onCopy, onChinese, onO
           <p className="muted">未找到释义</p>
         ) : (
           <ul className="dict-entries">
-            {state.entries.map((entry, i) => (
-              <li key={i} className="dict-entry">
-                {entry.pos && <span className="dict-pos">{entry.pos}</span>}
-                {entry.glossesZh?.map((z, j) => (
-                  <span key={j} className="dict-gloss zh">
-                    {z}
-                  </span>
-                ))}
-              </li>
-            ))}
+            {state.entries.map((entry, i) => {
+              const posZh = translatePos(entry.pos);
+              return (
+                <li key={i} className="dict-entry">
+                  {posZh && <span className="dict-pos">{posZh}</span>}
+                  {entry.glossesZh?.map((z, j) => (
+                    <span key={j} className="dict-gloss zh">
+                      {z}
+                    </span>
+                  ))}
+                </li>
+              );
+            })}
           </ul>
         )}
         {!allChinese && (

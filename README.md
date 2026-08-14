@@ -148,7 +148,7 @@ npm --prefix frontend run dev   # http://localhost:5173，/api 代理到 8080
 
 ## 词典中文释义（预计算，2026-08-14）
 
-点词后的词典卡只显示中文释义：`dict_entries` 新增 `glosses_zh` 列（`\u001F` 分隔，与 `glosses` 义项一一对应），`GET /api/dict` 返回 `glossesZh` 数组；词典卡不再显示/回退英文释义，某词缺中文时显示「中文释义」按钮兜底（`dict-miss` 仍保留「用 LLM 解释这个词」）。
+点词后的词典卡只显示中文：`dict_entries` 新增 `glosses_zh` 列（`\u001F` 分隔，与 `glosses` 义项一一对应），`GET /api/dict` 返回 `glossesZh` 数组；词典卡不再显示/回退英文释义，某词缺中文时显示「中文释义」按钮兜底（`dict-miss` 仍保留「用 LLM 解释这个词」）。JMDict 英文词性标签在前端按封闭集合映射为中文（`frontend/src/lib/pos.js`，实测 83 个标签），未知标签原样保留。
 
 生成方式为一次性离线批处理：
 
