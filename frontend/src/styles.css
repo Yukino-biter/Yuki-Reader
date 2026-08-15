@@ -1116,7 +1116,13 @@ body {
 /* ---------- 上传区 ---------- */
 .home-dropzone {
   position: relative;
-  padding: 60px 40px;
+  min-height: 220px;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   background: var(--color-paper);
   border: 2px dashed var(--color-paper-darker);
   border-radius: var(--radius-xl);
@@ -1148,81 +1154,8 @@ body {
   transform: scale(1.01);
 }
 
-.home-drop-icon {
-  display: inline-flex;
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 20px;
-  position: relative;
-  z-index: 1;
-}
-
-.home-scroll {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  display: block;
-}
-
-.home-scroll-body {
-  position: absolute;
-  top: 18px;
-  left: 12px;
-  right: 12px;
-  bottom: 18px;
-  background: var(--color-paper);
-  border: 2px solid var(--color-ink);
-  border-radius: 2px;
-}
-
-.home-scroll-body::before,
-.home-scroll-body::after {
-  content: '';
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  height: 1.5px;
-  background: var(--color-ink);
-  opacity: 0.4;
-}
-
-.home-scroll-body::before {
-  top: 10px;
-  box-shadow: 0 7px 0 rgba(26, 43, 66, 0.4), 0 14px 0 rgba(26, 43, 66, 0.4);
-}
-
-.home-scroll-body::after {
-  bottom: 10px;
-}
-
-.home-scroll-top,
-.home-scroll-bottom {
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  height: 14px;
-  background: var(--color-vermilion);
-  border-radius: 3px;
-  box-shadow: 0 2px 6px rgba(194, 58, 43, 0.3);
-}
-
-.home-scroll-top { top: 8px; }
-.home-scroll-bottom { bottom: 8px; }
-
-.home-scroll-top::before,
-.home-scroll-bottom::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 8px;
-  right: 8px;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.4);
-  transform: translateY(-50%);
-}
-
 .home-dropzone p {
-  margin: 0 0 8px;
+  margin: 0;
   font-family: var(--font-serif);
   font-size: 18px;
   font-weight: 600;
@@ -1240,7 +1173,7 @@ body {
 }
 
 .home-formats {
-  margin-top: 16px;
+  margin-top: 8px;
   display: flex;
   justify-content: center;
   gap: 8px;
@@ -1531,10 +1464,6 @@ body {
 
 .app-home[data-theme="dark"] .home-dropzone::before {
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f0e9dc' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-}
-
-.app-home[data-theme="dark"] .home-scroll-body::before {
-  box-shadow: 0 7px 0 rgba(240, 233, 220, 0.45), 0 14px 0 rgba(240, 233, 220, 0.45);
 }
 
 .app-home[data-theme="dark"] .home-feature-icon.red {

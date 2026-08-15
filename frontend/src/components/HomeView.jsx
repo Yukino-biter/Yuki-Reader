@@ -225,13 +225,6 @@ export default function HomeView({
               if (e.key === 'Enter' || e.key === ' ') pickFile();
             }}
           >
-            <span className="home-drop-icon" aria-hidden="true">
-              <span className="home-scroll">
-                <span className="home-scroll-top" />
-                <span className="home-scroll-body" />
-                <span className="home-scroll-bottom" />
-              </span>
-            </span>
             <p>点击或拖拽上传 TXT 文件</p>
             <small>支持格式：TXT · 自动识别编码</small>
             <span className="home-formats">
