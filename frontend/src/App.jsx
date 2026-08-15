@@ -282,28 +282,30 @@ export default function App() {
 
   return (
     <div className={`app${route === 'welcome' ? ' app-home' : ''}`} data-theme={settings.theme}>
-      <header className="topbar">
-        <button className="brand" onClick={handleHome} aria-label="返回主界面">
-          Yuki Reader
-        </button>
-        {route === 'reading' && book && (
-          <span className="current-book">
-            {book.name}
-            {book.author ? ` · ${book.author}` : ''}
-          </span>
-        )}
-        <div className="topbar-actions">
-          <button className="btn ghost small" onClick={() => { setSettingsTab('reading'); setModal('settings'); }}>
-            阅读设置
+      {route === 'reading' && (
+        <header className="topbar">
+          <button className="brand" onClick={handleHome} aria-label="返回主界面">
+            Yuki Reader
           </button>
-          <button className="btn ghost small" onClick={() => { setSettingsTab('byok'); setModal('settings'); }}>
-            翻译设置
-          </button>
-          <button className="btn ghost small" onClick={toggleTheme}>
-            {settings.theme === 'dark' ? '日间' : '夜间'}
-          </button>
-        </div>
-      </header>
+          {book && (
+            <span className="current-book">
+              {book.name}
+              {book.author ? ` · ${book.author}` : ''}
+            </span>
+          )}
+          <div className="topbar-actions">
+            <button className="btn ghost small" onClick={() => { setSettingsTab('reading'); setModal('settings'); }}>
+              阅读设置
+            </button>
+            <button className="btn ghost small" onClick={() => { setSettingsTab('byok'); setModal('settings'); }}>
+              翻译设置
+            </button>
+            <button className="btn ghost small primary" onClick={toggleTheme}>
+              {settings.theme === 'dark' ? '日间' : '夜间'}
+            </button>
+          </div>
+        </header>
+      )}
 
       <main className="main">
         <div className="content">
@@ -319,10 +321,13 @@ export default function App() {
             <HomeView
               busy={busy}
               books={libraryBooks}
+              theme={settings.theme}
               onOpenBuiltIn={handleOpenBuiltIn}
               onUploadFile={handleUpload}
               onOpenBook={handleOpenUploaded}
               onOpenSettings={() => { setSettingsTab('reading'); setModal('settings'); }}
+              onOpenByokSettings={() => { setSettingsTab('byok'); setModal('settings'); }}
+              onToggleTheme={toggleTheme}
             />
           )}
         </div>

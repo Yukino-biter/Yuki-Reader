@@ -199,6 +199,38 @@ describe('App 冒烟测试', () => {
     expect(document.querySelector('.home-sidebar')).not.toHaveClass('collapsed');
   });
 
+  it('homepage shows feature intro and operation guide', async () => {
+    render(<App />);
+    await screen.findByText(/还没有上传的书/);
+    expect(screen.getByRole('heading', { name: '特点简介' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '操作说明' })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { name: '点词查词典' })).toHaveLength(2);
+    expect(screen.getByRole('heading', { name: '拖选翻译' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '点句翻译' })).toBeInTheDocument();
+    expect(screen.queryByText(/无痛阅读/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/示例图片/)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/在底部「设置」中配置 API/)).toHaveLength(2);
+    expect(screen.getByText(/分词无需配置/)).toBeInTheDocument();
+  });
+
+  it('homepage shows the favicon in the sidebar brand seal', async () => {
+    render(<App />);
+    await screen.findByText(/还没有上传的书/);
+    const img = document.querySelector('.home-brand-seal img');
+    expect(img).not.toBeNull();
+    expect(img.getAttribute('src')).toContain('yuki-icon.svg');
+  });
+
+  it('homepage keeps its own style when the global theme toggles', async () => {
+    render(<App />);
+    await screen.findByText(/还没有上传的书/);
+    expect(document.querySelector('.app')).toHaveClass('app-home');
+    expect(document.querySelector('.app')).toHaveAttribute('data-theme', 'default');
+    await userEvent.click(screen.getByRole('button', { name: '夜间' }));
+    expect(document.querySelector('.app')).toHaveAttribute('data-theme', 'dark');
+    expect(document.querySelector('.app')).toHaveClass('app-home');
+  });
+
   it('usage modal explains the three operations', async () => {
     render(<App />);
     await userEvent.click(screen.getByRole('button', { name: '使用说明' }));
