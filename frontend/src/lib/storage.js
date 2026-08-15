@@ -71,7 +71,7 @@ export function saveSettings(settings) {
 export const DEFAULT_BYOK = {
   provider: 'deepseek',
   baseUrl: 'https://api.deepseek.com',
-  model: 'deepseek-chat',
+  model: 'deepseek-v4-flash',
   apiKey: ''
 };
 

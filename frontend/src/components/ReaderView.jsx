@@ -15,11 +15,13 @@ export default function ReaderView({ book, settings, onWord, onTranslate, onTran
   const [error, setError] = useState(null);
   const [retryTick, setRetryTick] = useState(0);
   const [catalogOpen, setCatalogOpen] = useState(false);
-  const scrollRef = useRef(null);
   const saveTimer = useRef(null);
   const requestId = useRef(0);
   const restoredRef = useRef(false);
   const lastProgrammaticScroll = useRef(0);
+
+  // 阅读页为“整页滚动”：滚动容器是 window/document，而不是 .reader-scroll
+  const getScroller = useCallback(() => document.scrollingElement || document.documentElement, []);
 
   const chapter = book.chapters[chapterIndex] || book.chapters[0];
   const structure = useMemo(
@@ -62,52 +64,59 @@ export default function ReaderView({ book, settings, onWord, onTranslate, onTran
   }, [book.id, book.chapters, chapterIndex, flatSentences, retryTick]);
 
   const persistProgress = useCallback(() => {
-    const el = scrollRef.current;
+    const el = getScroller();
     if (!el) return;
-    const ratio = el.scrollHeight > el.clientHeight
-      ? el.scrollTop / (el.scrollHeight - el.clientHeight)
-      : 0;
+    const max = el.scrollHeight - window.innerHeight;
+    const ratio = max > 0 ? el.scrollTop / max : 0;
     saveProgress(book.id, chapterIndex, ratio);
-  }, [book.id, chapterIndex]);
+  }, [book.id, chapterIndex, getScroller]);
 
   const goToChapter = useCallback(
     (index) => {
       const next = Math.max(0, Math.min(index, book.chapters.length - 1));
       persistProgress();
+      // 手动切章后短时间内抑制自动翻页，避免滚动事件把章节再往后带
+      lastProgrammaticScroll.current = Date.now();
       setChapterIndex(next);
     },
     [book.chapters.length, persistProgress]
   );
 
-  const handleScroll = () => {
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(persistProgress, 250);
-    // 滚动翻页模式：滚到本章底部附近自动进入下一章
-    if (settings.pageMode !== 'scrolled') return;
-    const el = scrollRef.current;
-    if (!el) return;
-    if (Date.now() - lastProgrammaticScroll.current < 600) return;
-    if (chapterIndex >= book.chapters.length - 1) return;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 120) {
-      goToChapter(chapterIndex + 1);
-    }
-  };
+  useEffect(() => {
+    const onScroll = () => {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(persistProgress, 250);
+      // 滚动翻页模式：滚到本章底部附近自动进入下一章
+      if (settings.pageMode !== 'scrolled') return;
+      if (Date.now() - lastProgrammaticScroll.current < 600) return;
+      if (chapterIndex >= book.chapters.length - 1) return;
+      const el = getScroller();
+      if (el && el.scrollTop + window.innerHeight >= el.scrollHeight - 120) {
+        goToChapter(chapterIndex + 1);
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [settings.pageMode, chapterIndex, book.chapters.length, goToChapter, persistProgress, getScroller]);
 
   useLayoutEffect(() => {
     if (restoredRef.current) return;
-    const el = scrollRef.current;
-    if (!el) return;
     const currentSaved = loadProgress(book.id);
     const ratio = currentSaved && currentSaved.chapter === chapterIndex ? currentSaved.ratio : 0;
     const raf = requestAnimationFrame(() => {
       restoredRef.current = true;
-      if (el.scrollHeight > el.clientHeight) {
+      const el = getScroller();
+      if (!el) return;
+      const max = el.scrollHeight - window.innerHeight;
+      if (max > 0) {
         lastProgrammaticScroll.current = Date.now();
-        el.scrollTop = ratio * (el.scrollHeight - el.clientHeight);
+        el.scrollTop = ratio * max;
+      } else {
+        el.scrollTop = 0;
       }
     });
     return () => cancelAnimationFrame(raf);
-  }, [book.id, chapterIndex, tokenRows]);
+  }, [book.id, chapterIndex, tokenRows, getScroller]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -180,7 +189,7 @@ export default function ReaderView({ book, settings, onWord, onTranslate, onTran
         </button>
       </nav>
 
-      <div className="reader-scroll" ref={scrollRef} onScroll={handleScroll}>
+      <div className="reader-scroll">
         <article className="chapter">
           <h2 className="chapter-title">{chapter.title || '本文'}</h2>
           {error ? (
