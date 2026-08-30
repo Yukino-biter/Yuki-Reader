@@ -1,0 +1,20 @@
+[Unit]
+Description=Yuki Reader - Japanese reading / dictionary / translation app
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/yuki-reader
+# 数据目录与词典 XML（首次启动自动导入词典）
+Environment=YUKI_DB_PATH=/opt/yuki-reader/data/yuki.db
+Environment=YUKI_JMDICT_XML=/opt/yuki-reader/data/JMdict_e
+Environment=YUKI_JMDICT_AUTO_IMPORT=true
+# 实测稳定占用 ~235MB，512m 上限留足余量（本机还要跑第二个 Java 项目）
+ExecStart=/usr/bin/java -Xmx512m -Xss512k -jar /opt/yuki-reader/yuki-reader.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

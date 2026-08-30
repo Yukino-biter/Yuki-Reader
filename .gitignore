@@ -17,6 +17,7 @@ backend/target/
 backend/data/
 backend/src/main/resources/static/
 scripts/data/
+scripts/deploy/*.jar
 
 # SQLite
 *.db
