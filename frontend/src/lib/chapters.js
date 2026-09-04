@@ -2,7 +2,7 @@ const NUMERAL_RE = /^[一二三四五六七八九十百千万]+[.．、]?$/;
 const DIGIT_RE = /^\d+[.．、]?$/;
 const PART_RE = /^[上中下]$/;
 const CHAPTER_RE = /^第[一二三四五六七八九十百千万\d]+[章节話部卷巻編篇]/;
-const CHARS_PER_CHAPTER = 5000;
+const CHARS_PER_CHAPTER = 1500;
 
 export function isHeadingParagraph(text) {
   const t = String(text).trim();

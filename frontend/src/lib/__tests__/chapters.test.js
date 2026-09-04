@@ -31,20 +31,26 @@ describe('splitChapters', () => {
     expect(chapters[0].paragraphs).toHaveLength(2);
   });
 
-  it('splits long unheaded text into ~5000-char chapters', () => {
-    const paragraph = 'あ'.repeat(1200);
-    const paragraphs = Array.from({ length: 10 }, (_, i) => `${i + 1}番目。${paragraph}`);
+  it('splits long unheaded text into ~1500-char chapters', () => {
+    const paragraph = 'あ'.repeat(600);
+    const paragraphs = Array.from({ length: 6 }, (_, i) => `${i + 1}番目。${paragraph}`);
     const text = paragraphs.join('\n\n');
     const chapters = splitChapters(text);
-    expect(chapters.length).toBeGreaterThan(1);
+    expect(chapters).toHaveLength(3); // 每 2 段（1200 字符）一章
     expect(chapters[0].title).toBe('第 1 章');
-    expect(chapters[1].title).toBe('第 2 章');
     for (const chapter of chapters) {
       const total = chapter.paragraphs.join('').length;
-      expect(total).toBeLessThanOrEqual(5000 + 1200); // a single paragraph may exceed the limit
+      expect(total).toBeLessThanOrEqual(1500);
       expect(chapter.paragraphs.length).toBeGreaterThan(0);
     }
     expect(chapters.flatMap((c) => c.paragraphs).join('')).toBe(paragraphs.join(''));
+  });
+
+  it('a single long paragraph becomes its own oversized chapter', () => {
+    const paragraph = 'あ'.repeat(1600);
+    const chapters = splitChapters(`${paragraph}\n\n短い段落。`);
+    expect(chapters).toHaveLength(2);
+    expect(chapters[0].paragraphs).toEqual([paragraph]);
   });
 
   it('never splits inside a paragraph', () => {
