@@ -33,3 +33,8 @@ export function splitSentences(text) {
   if (trimmed) sentences.push(trimmed);
   return sentences;
 }
+
+/** Returns up to `count` sentences immediately before `index` (LLM 翻译上文语境). */
+export function previousSentences(sentences, index, count = 2) {
+  return sentences.slice(Math.max(0, index - count), index);
+}

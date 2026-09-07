@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { splitSentences } from '../sentence.js';
+import { splitSentences, previousSentences } from '../sentence.js';
 
 describe('splitSentences', () => {
   it('splits on 。！？', () => {
@@ -31,5 +31,19 @@ describe('splitSentences', () => {
   it('drops empty trailing fragments', () => {
     expect(splitSentences('終わり。')).toEqual(['終わり。']);
     expect(splitSentences('  ')).toEqual([]);
+  });
+});
+
+describe('previousSentences', () => {
+  const sentences = ['一。', '二。', '三。', '四。'];
+
+  it('returns up to two preceding sentences', () => {
+    expect(previousSentences(sentences, 2)).toEqual(['一。', '二。']);
+    expect(previousSentences(sentences, 3)).toEqual(['二。', '三。']);
+  });
+
+  it('returns fewer sentences near the chapter start', () => {
+    expect(previousSentences(sentences, 0)).toEqual([]);
+    expect(previousSentences(sentences, 1)).toEqual(['一。']);
   });
 });
