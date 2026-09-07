@@ -2,16 +2,13 @@
 // 记录形如 { id, bookId, rows }；id = bookId:chapterIndex:hash(本章全文)。
 // 所有入口吞掉 IndexedDB 异常（隐私模式降级为仅会话缓存），调用方无需 try/catch。
 import { openDb } from './storage.js';
+import { djb2 } from './hash.js';
 
 const STORE = 'token-cache';
 
-/** djb2 32 位哈希：用途仅为“章节内容变化 → key 变化”，正文相同则分词结果必然相同。 */
+/** 章节内容指纹：用途仅为“章节内容变化 → key 变化”，正文相同则分词结果必然相同。 */
 export function hashChapterText(text) {
-  let h = 5381;
-  for (let i = 0; i < text.length; i++) {
-    h = ((h << 5) + h + text.charCodeAt(i)) | 0;
-  }
-  return (h >>> 0).toString(36);
+  return djb2(text);
 }
 
 export function chapterCacheKey(bookId, chapterIndex, chapterText) {

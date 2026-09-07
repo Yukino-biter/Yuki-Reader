@@ -19,6 +19,7 @@ import {
 } from './lib/storage.js';
 import { clearTokenCache } from './lib/tokenize.js';
 import { clearForBook } from './lib/tokenCache.js';
+import { translationCacheKey, getTranslation, putTranslation } from './lib/translationCache.js';
 import {
   GENRE_KEYS,
   GENRE_LABELS,
@@ -230,35 +231,53 @@ export default function App() {
         return;
       }
       const genre = book?.genre || 'generic';
+      // glossaryHash 占位为空串，术语表功能落地后换真实 hash（规格 §2）
+      const cacheKey = translationCacheKey(byok.model, genre, '', text, context);
       setSidebar({
         kind: 'translation',
         original: text,
         status: 'loading',
         lastAction: { type: 'translate', text, context }
       });
-      chat({
-        baseUrl: byok.baseUrl,
-        model: byok.model,
-        apiKey: byok.apiKey,
-        messages: [
-          { role: 'system', content: translateSystemFor(genre) },
-          { role: 'user', content: translateUserContent(text, context) }
-        ]
-      })
-        .then((content) => {
-          setSidebar((prev) =>
-            prev.kind === 'translation' && prev.original === text
-              ? { ...prev, status: 'done', result: content }
-              : prev
-          );
+      const runNetwork = () => {
+        chat({
+          baseUrl: byok.baseUrl,
+          model: byok.model,
+          apiKey: byok.apiKey,
+          messages: [
+            { role: 'system', content: translateSystemFor(genre) },
+            { role: 'user', content: translateUserContent(text, context) }
+          ]
         })
-        .catch((err) => {
-          setSidebar((prev) =>
-            prev.kind === 'translation' && prev.original === text
-              ? { ...prev, status: 'error', error: err.message }
-              : prev
-          );
-        });
+          .then((content) => {
+            setSidebar((prev) =>
+              prev.kind === 'translation' && prev.original === text
+                ? { ...prev, status: 'done', result: content }
+                : prev
+            );
+            putTranslation(cacheKey, content);
+          })
+          .catch((err) => {
+            setSidebar((prev) =>
+              prev.kind === 'translation' && prev.original === text
+                ? { ...prev, status: 'error', error: err.message }
+                : prev
+            );
+          });
+      };
+      getTranslation(cacheKey)
+        .then((cached) => {
+          if (cached !== null) {
+            setSidebar((prev) =>
+              prev.kind === 'translation' && prev.original === text
+                ? { ...prev, status: 'done', result: cached }
+                : prev
+            );
+            return;
+          }
+          runNetwork();
+        })
+        .catch(runNetwork);
     },
     [byok, book]
   );

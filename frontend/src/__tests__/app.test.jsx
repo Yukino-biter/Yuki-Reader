@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App.jsx';
 import { lookupDict, chat } from '../lib/api.js';
@@ -134,7 +134,8 @@ describe('App 冒烟测试', () => {
     const sentence = screen.getAllByTestId('sentence')[0];
     fireEvent.click(sentence);
 
-    expect(chat).toHaveBeenCalled();
+    // 缓存查找是异步的，chat 在微任务后才发出
+    await waitFor(() => expect(chat).toHaveBeenCalled());
     expect(await screen.findByText('你好。')).toBeInTheDocument();
     expect(screen.queryByText('我；我自己')).not.toBeInTheDocument();
 

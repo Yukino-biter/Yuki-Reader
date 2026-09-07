@@ -107,11 +107,13 @@ export function saveProgress(bookId, chapter, ratio) {
   }
 }
 
-// --- IndexedDB for uploaded books + token cache ---
+// --- IndexedDB for uploaded books + token/translation/glossary caches ---
 const DB_NAME = 'yuki-books';
 const STORE = 'books';
 const TOKEN_CACHE_STORE = 'token-cache';
-const DB_VERSION = 2;
+const TRANSLATION_CACHE_STORE = 'translation-cache';
+const GLOSSARY_STORE = 'glossaries';
+const DB_VERSION = 3;
 
 export function openDb() {
   return new Promise((resolve, reject) => {
@@ -124,6 +126,12 @@ export function openDb() {
       if (!db.objectStoreNames.contains(TOKEN_CACHE_STORE)) {
         const cacheStore = db.createObjectStore(TOKEN_CACHE_STORE, { keyPath: 'id' });
         cacheStore.createIndex('byBook', 'bookId', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(TRANSLATION_CACHE_STORE)) {
+        db.createObjectStore(TRANSLATION_CACHE_STORE, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(GLOSSARY_STORE)) {
+        db.createObjectStore(GLOSSARY_STORE, { keyPath: 'bookId' });
       }
     };
     req.onsuccess = () => resolve(req.result);

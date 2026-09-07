@@ -3,6 +3,9 @@
 export const GENRE_KEYS = ['literature', 'lightnovel', 'generic'];
 export const GENRE_LABELS = { literature: '文学', lightnovel: '轻小说', generic: '其他' };
 
+// 提示词版本号：文案变更时 +1，翻译缓存 key 含它，旧译文自动失效。
+export const PROMPT_VERSION = 1;
+
 const PUBLIC_RULES = '只输出译文，不要解释，不要输出原文以外的内容。';
 
 export const TRANSLATE_PROMPTS = {
