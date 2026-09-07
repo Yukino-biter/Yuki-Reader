@@ -61,7 +61,15 @@ function uploadedBook(overrides = {}) {
 
 async function openUploadedBook(book) {
   listUploadedBooks.mockResolvedValue([{ id: 'u1', name: 'テスト本', uploadedAt: 1 }]);
-  getUploadedBook.mockResolvedValue({ id: 'u1', name: 'テスト本', text: 'x', uploadedAt: 1 });
+  // 存储记录是 genre 的持久化来源，handleOpenUploaded 会以它覆盖书对象
+  getUploadedBook.mockResolvedValue({
+    id: 'u1',
+    name: 'テスト本',
+    text: 'x',
+    uploadedAt: 1,
+    genre: book.genre ?? null,
+    genreManual: !!book.genreManual
+  });
   bookFromUploadedText.mockReturnValue(book);
   render(<App />);
   // 书列表是 mount 后异步加载的，先等列表项出现再点
