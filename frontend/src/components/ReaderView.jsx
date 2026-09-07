@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Sentence from './Sentence.jsx';
-import { splitSentences } from '../lib/sentence.js';
+import { splitSentences, previousSentences } from '../lib/sentence.js';
 import { tokenizeChapter, prefetchChapter } from '../lib/tokenize.js';
 import { loadProgress, saveProgress } from '../lib/storage.js';
 
@@ -146,8 +146,8 @@ export default function ReaderView({ book, settings, onWord, onTranslate, onTran
 
   useEffect(() => () => clearTimeout(saveTimer.current), []);
 
-  const handlePlainSentenceClick = (text) => {
-    onTranslate(text);
+  const handlePlainSentenceClick = (text, index) => {
+    onTranslate(text, previousSentences(flatSentences, index));
   };
 
   const handlePlainMouseUp = (e) => {
@@ -207,24 +207,26 @@ export default function ReaderView({ book, settings, onWord, onTranslate, onTran
               {structure.map((group, gi) => (
                 <div className="para" key={gi}>
                   {group.sentences.map((s) => {
-                    const tokens = tokenRows[sentenceIndex];
+                    const idx = sentenceIndex;
+                    const tokens = tokenRows[idx];
                     sentenceIndex += 1;
+                    const context = previousSentences(flatSentences, idx);
                     return tokens ? (
                       <Sentence
-                        key={sentenceIndex - 1}
+                        key={idx}
                         sentence={s}
                         tokens={tokens}
                         onWord={onWord}
-                        onSentence={onTranslate}
+                        onSentence={(text) => onTranslate(text, context)}
                         onSelection={onTranslateSelection}
                         showFurigana={settings.showFurigana}
                       />
                     ) : (
                       <div
-                        key={sentenceIndex - 1}
+                        key={idx}
                         className="sentence sentence-plain"
                         data-testid="sentence"
-                        onClick={() => handlePlainSentenceClick(s)}
+                        onClick={() => handlePlainSentenceClick(s, idx)}
                         onMouseUp={handlePlainMouseUp}
                       >
                         {s}

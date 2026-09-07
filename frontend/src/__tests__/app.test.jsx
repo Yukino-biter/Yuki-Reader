@@ -30,12 +30,14 @@ const BOOK = {
   name: 'こころ',
   author: '夏目漱石',
   sourceLabel: '青空文庫',
+  genre: 'literature',
   chapters: [{ title: '上', paragraphs: ['私は学生である。'] }]
 };
 
 const BOOK_MULTI = {
   id: 'multi',
   name: '多章节书',
+  genre: 'literature',
   chapters: [
     { title: '上', paragraphs: ['私は学生である。'] },
     { title: '中', paragraphs: ['私は教師である。'] },

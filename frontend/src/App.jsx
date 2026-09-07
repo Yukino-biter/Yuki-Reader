@@ -17,9 +17,16 @@ import {
   getUploadedBook
 } from './lib/storage.js';
 import { clearTokenCache } from './lib/tokenize.js';
-
-const TRANSLATE_SYSTEM = '你是专业的日译中翻译。请把用户提供的日语翻译成自然流畅的中文，只输出译文，不要解释。';
-const CHINESE_SYSTEM = '你是日语词典释义助手。请把用户提供的日语词条释义翻译成简洁准确的中文，或按用户要求解释该词，只输出释义本身。';
+import {
+  GENRE_KEYS,
+  GENRE_LABELS,
+  translateSystemFor,
+  chineseSystemFor,
+  translateUserContent,
+  CLASSIFY_SYSTEM,
+  classifyUserContent,
+  parseGenre
+} from './lib/genres.js';
 
 function sameToken(a, b) {
   return a && b && a.surface === b.surface && a.basic === b.basic && a.reading === b.reading;
@@ -51,6 +58,66 @@ export default function App() {
   }, [sidebar]);
 
   useEffect(() => () => clearTimeout(copyTimer.current), []);
+
+  const classifiedRef = useRef(new Set());
+  const bookRef = useRef(null);
+
+  // bookRef 跟随最新书状态
+  useEffect(() => {
+    bookRef.current = book;
+  }, [book]);
+
+  // 把 genre 字段写回 IndexedDB（内置书无记录则跳过）
+  const persistGenre = useCallback(async (bookId, patch) => {
+    try {
+      const stored = await getUploadedBook(bookId);
+      if (!stored) return;
+      await saveUploadedBook({ ...stored, ...patch });
+    } catch {
+      // IndexedDB 不可用：仅保留内存态
+    }
+  }, []);
+
+  // 书籍类别判定（规格 §4）：打开无标签书后静默判一次，失败/无 Key/手动设置均跳过
+  useEffect(() => {
+    if (route !== 'reading' || !book) return;
+    if (book.genre || book.genreManual) return;
+    if (!byok.apiKey?.trim()) return;
+    if (classifiedRef.current.has(book.id)) return;
+    classifiedRef.current.add(book.id);
+    let cancelled = false;
+    const excerpt = (book.chapters[0]?.paragraphs || []).join('\n').slice(0, 600);
+    chat({
+      baseUrl: byok.baseUrl,
+      model: byok.model,
+      apiKey: byok.apiKey,
+      messages: [
+        { role: 'system', content: CLASSIFY_SYSTEM },
+        { role: 'user', content: classifyUserContent(book.name, excerpt) }
+      ]
+    })
+      .then((content) => {
+        if (cancelled) return;
+        const genre = parseGenre(content);
+        if (!genre) return;
+        const cur = bookRef.current;
+        if (!cur || cur.id !== book.id || cur.genreManual) return; // 手动设置优先（规格 §4）
+        setBook((prev) => (prev && prev.id === book.id && !prev.genreManual ? { ...prev, genre } : prev));
+        persistGenre(book.id, { genre });
+      })
+      .catch(() => {}); // 静默失败，保持“其他”
+    return () => {
+      cancelled = true;
+    };
+  }, [route, book, byok, persistGenre]);
+
+  const handleGenreChange = useCallback(
+    (value) => {
+      setBook((prev) => (prev ? { ...prev, genre: value, genreManual: true } : prev));
+      if (book) persistGenre(book.id, { genre: value, genreManual: true });
+    },
+    [book, persistGenre]
+  );
 
   const refreshLibrary = useCallback(async () => {
     try {
@@ -153,19 +220,25 @@ export default function App() {
   }, []);
 
   const handleTranslate = useCallback(
-    (text) => {
+    (text, context = null) => {
       if (!byok.apiKey?.trim()) {
         setSidebar({ kind: 'prompt', message: '翻译功能需要 API Key，请先前往设置配置。' });
         return;
       }
-      setSidebar({ kind: 'translation', original: text, status: 'loading', lastAction: { type: 'translate', text } });
+      const genre = book?.genre || 'generic';
+      setSidebar({
+        kind: 'translation',
+        original: text,
+        status: 'loading',
+        lastAction: { type: 'translate', text, context }
+      });
       chat({
         baseUrl: byok.baseUrl,
         model: byok.model,
         apiKey: byok.apiKey,
         messages: [
-          { role: 'system', content: TRANSLATE_SYSTEM },
-          { role: 'user', content: text }
+          { role: 'system', content: translateSystemFor(genre) },
+          { role: 'user', content: translateUserContent(text, context) }
         ]
       })
         .then((content) => {
@@ -183,7 +256,7 @@ export default function App() {
           );
         });
     },
-    [byok]
+    [byok, book]
   );
 
   const handleChinese = useCallback(() => {
@@ -205,10 +278,10 @@ export default function App() {
       baseUrl: byok.baseUrl,
       model: byok.model,
       apiKey: byok.apiKey,
-      messages: [
-        { role: 'system', content: CHINESE_SYSTEM },
-        { role: 'user', content: userContent }
-      ]
+        messages: [
+          { role: 'system', content: chineseSystemFor(book?.genre || 'generic') },
+          { role: 'user', content: userContent }
+        ]
     })
       .then((content) => {
         setSidebar((prev) =>
@@ -224,14 +297,14 @@ export default function App() {
             : prev
         );
       });
-  }, [byok]);
+  }, [byok, book]);
 
   const handleRetry = useCallback(() => {
     const cur = sidebarRef.current;
     const action = cur?.lastAction;
     if (!action) return;
     if (action.type === 'dict') handleWord(action.token);
-    else if (action.type === 'translate') handleTranslate(action.text);
+    else if (action.type === 'translate') handleTranslate(action.text, action.context);
     else if (action.type === 'chinese') handleChinese();
   }, [handleWord, handleTranslate, handleChinese]);
 
@@ -294,6 +367,20 @@ export default function App() {
             </span>
           )}
           <div className="topbar-actions">
+            {book && (
+              <select
+                className="genre-select"
+                aria-label="书籍类别"
+                value={book.genre || 'generic'}
+                onChange={(e) => handleGenreChange(e.target.value)}
+              >
+                {GENRE_KEYS.map((key) => (
+                  <option key={key} value={key}>
+                    {GENRE_LABELS[key]}
+                  </option>
+                ))}
+              </select>
+            )}
             <button className="btn ghost small" onClick={() => { setSettingsTab('reading'); setModal('settings'); }}>
               阅读设置
             </button>

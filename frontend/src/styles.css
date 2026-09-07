@@ -1767,3 +1767,22 @@ body {
   z-index: 60;
   max-width: 70vw;
 }
+
+/* 书籍类别下拉（阅读页顶栏） */
+.genre-select {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.genre-select:hover,
+.genre-select:focus {
+  color: var(--text-primary);
+  border-color: var(--accent);
+  outline: none;
+}
