@@ -171,7 +171,9 @@ body {
   gap: 8px;
 }
 
-.topbar-actions .btn {
+.topbar-actions .btn,
+.topbar-actions .genre-select {
+  /* 原生 select 不继承字体：下拉必须与顶栏按钮显式同栈，否则字体不一致 */
   font-family: "SimHei", "黑体", "Heiti SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
 }
 

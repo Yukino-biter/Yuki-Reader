@@ -36,14 +36,14 @@
 
 **后端（唯一契约改动）**：
 
-- `ChatRequest` 增加 `boolean stream`（缺省 false，Jackson 兼容旧请求体）；保留 4 参构造重载，既有代码零改动。
-- `ChatService` 重构出 `buildRequest(request, stream)` 与 `mapUpstreamError(status, body)`，新增 `openStream(request)`：以 `stream: true` 调上游，`BodyHandlers.ofInputStream()` 接收；非 2xx 读取错误体并按现有映射抛 `ChatServiceException`。
-- `ChatController`：`stream=true` 时返回 `ResponseEntity<StreamingResponseBody>`（content-type `text/event-stream`），逐行原样中继上游 SSE 并 flush；非流式路径返回结构不变。后端不理解/不解析 SSE 语义，纯中继，仍零日志。
+- 新增独立端点 `POST /api/chat/stream`：接受与 `/api/chat` 相同的请求体（**不新增 stream 字段**，路径即语义），向上游转发 `stream: true`，用 `BodyHandlers.ofInputStream()` 接收 SSE 并**逐行原样中继**（content-type `text/event-stream`），仍然零日志。`/api/chat` 非流式路径返回结构不变。
+  > 实现修订：初稿计划在 `/api/chat` 请求体加 `stream: true` 标志；实现时发现 Spring 的流式处理器要求返回类型显式声明为 `ResponseEntity<StreamingResponseBody>`，单端点双形态无法同时满足（`ResponseEntity<?>` 通配符会退化进 JSON 消息转换），故改为独立端点。
+- `ChatService` 重构出 `buildRequest(request, stream)` 与 `mapUpstreamError(status, body)`，新增 `openStream(request)`：以 `stream: true` 调上游，非 2xx 读取错误体并按现有映射抛 `ChatServiceException`。
 - 异常：`openStream` 在连接/状态码阶段抛错 → 走现有 `GlobalExceptionHandler`（401/429/504 等不变）；流中途上游断开 → 中继循环自然结束，前端以已收内容兜底。
 
 **前端**：
 
-- `api.js` 新增 `chatStream({..., onDelta})`：POST 带 `stream: true`；非 2xx 复用现有错误映射抛 `ApiError`；响应为 `application/json`（上游不支持流式的整段兜底）→ 直接取 `content` 并一次性 `onDelta`；`text/event-stream` → 逐行解析 `data:` 负载取 `choices[0].delta.content`，`data: [DONE]` 结束；**全程无任何 delta 时把原始文本按 JSON 兜底解析**（覆盖后端原样中继上游 JSON 的情况）。
+- `api.js` 新增 `chatStream({..., onDelta})`：POST `/api/chat/stream`；非 2xx 复用现有错误映射抛 `ApiError`；响应为 `application/json`（上游不支持流式的整段兜底）→ 直接取 `content` 并一次性 `onDelta`；`text/event-stream` → 逐行解析 `data:` 负载取 `choices[0].delta.content`，`data: [DONE]` 结束；**全程无任何 delta 时把原始文本按 JSON 兜底解析**（覆盖后端原样中继上游 JSON 的情况）。
 - `handleTranslate` 网络路径改走 `chatStream`：状态机 loading → streaming（`result` 增量累积）→ done（写缓存、push 历史）；错误卡与重试不变。
 - Sidebar：`streaming` 态与 done 同样渲染译文文本；复制按钮仅 done 态出现。
 - 分类与中文释义保持非流式 `chat()`。
