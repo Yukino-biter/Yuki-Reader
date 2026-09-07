@@ -6,7 +6,8 @@ import {
   chineseSystemFor,
   translateUserContent,
   classifyUserContent,
-  parseGenre
+  parseGenre,
+  appendGlossary
 } from '../genres.js';
 
 describe('提示词路由', () => {
@@ -81,5 +82,21 @@ describe('parseGenre（宽容解析）', () => {
 describe('GENRE_LABELS', () => {
   it('covers every key', () => {
     for (const key of GENRE_KEYS) expect(GENRE_LABELS[key]).toBeTruthy();
+  });
+});
+
+describe('appendGlossary（术语表注入）', () => {
+  it('appends the mapping section when entries exist', () => {
+    const out = appendGlossary(translateSystemFor('lightnovel'), [
+      { from: 'ルルーシュ', to: '鲁路修' }
+    ]);
+    expect(out).toContain('译名对照表');
+    expect(out).toContain('ルルーシュ → 鲁路修');
+    expect(out.startsWith(translateSystemFor('lightnovel'))).toBe(true);
+  });
+
+  it('returns the original prompt for empty glossaries', () => {
+    const base = translateSystemFor('literature');
+    expect(appendGlossary(base, [])).toBe(base);
   });
 });

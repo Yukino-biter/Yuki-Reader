@@ -1,5 +1,7 @@
 // 书籍类别 → LLM 提示词路由（规格 §5）。
 // genre 取值：'literature' | 'lightnovel' | 'generic'，null 按 generic 处理。
+import { serializeGlossary } from './glossary.js';
+
 export const GENRE_KEYS = ['literature', 'lightnovel', 'generic'];
 export const GENRE_LABELS = { literature: '文学', lightnovel: '轻小说', generic: '其他' };
 
@@ -57,4 +59,11 @@ export function parseGenre(raw) {
   if (text.includes('literature') || text.includes('文学')) return 'literature';
   if (text.includes('generic') || text.includes('其他')) return 'generic';
   return null;
+}
+
+/** 术语表非空时在 system prompt 尾部追加译名对照表段（序列化含上限，规格 §4）。 */
+export function appendGlossary(systemPrompt, entries) {
+  const serialized = serializeGlossary(entries);
+  if (!serialized) return systemPrompt;
+  return `${systemPrompt}\n\n译名对照表（原文出现下列词时必须按右侧译法）：\n${serialized}`;
 }

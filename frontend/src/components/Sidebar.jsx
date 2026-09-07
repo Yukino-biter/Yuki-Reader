@@ -59,6 +59,7 @@ export default function Sidebar({
   historyView = false,
   onToggleHistory,
   onSelectHistory,
+  onAddTerm,
   onRetry,
   onCopy,
   onChinese,
@@ -205,6 +206,11 @@ export default function Sidebar({
         actions.push(
           <button key="copy" className="btn small ghost" onClick={() => onCopy(state.result)}>
             {copied ? '已复制' : '复制'}
+          </button>
+        );
+        actions.push(
+          <button key="term" className="btn small ghost" onClick={() => onAddTerm(state.original)}>
+            + 术语
           </button>
         );
       }

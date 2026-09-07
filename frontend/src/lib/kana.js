@@ -8,3 +8,9 @@ export function toHiragana(text) {
 export function hasKanji(text) {
   return /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(text);
 }
+
+/** 提取原文中的片假名专名候选（去重、最多 8 个），供术语表预填。 */
+export function katakanaTerms(text) {
+  const matches = String(text).match(/[ァ-ヴー・]{2,}/g) || [];
+  return [...new Set(matches)].slice(0, 8);
+}

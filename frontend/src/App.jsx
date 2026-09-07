@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import ReaderView from './components/ReaderView.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
+import GlossaryModal from './components/GlossaryModal.jsx';
 import HomeView from './components/HomeView.jsx';
 import { loadBuiltInBook, bookFromUploadedText } from './lib/books.js';
 import { decodeFile } from './lib/encoding.js';
@@ -20,12 +21,15 @@ import {
 import { clearTokenCache } from './lib/tokenize.js';
 import { clearForBook } from './lib/tokenCache.js';
 import { translationCacheKey, getTranslation, putTranslation } from './lib/translationCache.js';
+import { getGlossary, saveGlossary, glossaryHash, clearGlossary } from './lib/glossary.js';
+import { katakanaTerms } from './lib/kana.js';
 import {
   GENRE_KEYS,
   GENRE_LABELS,
   translateSystemFor,
   chineseSystemFor,
   translateUserContent,
+  appendGlossary,
   CLASSIFY_SYSTEM,
   classifyUserContent,
   parseGenre
@@ -49,8 +53,25 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [history, setHistory] = useState([]);
   const [historyView, setHistoryView] = useState(false);
+  const [glossary, setGlossary] = useState([]);
+  const [glossaryPrefill, setGlossaryPrefill] = useState([]);
   const sidebarRef = useRef(sidebar);
   const copyTimer = useRef(null);
+
+  // 当前书术语表随书加载（规格 §4）
+  useEffect(() => {
+    let cancelled = false;
+    if (book) {
+      getGlossary(book.id).then((entries) => {
+        if (!cancelled) setGlossary(entries);
+      });
+    } else {
+      setGlossary([]);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [book]);
 
   useEffect(() => {
     sidebarRef.current = sidebar;
@@ -244,6 +265,16 @@ export default function App() {
     setSidebar({ kind: 'translation', original: entry.original, status: 'done', result: entry.result });
   }, []);
 
+  const handleOpenGlossary = useCallback(() => {
+    setGlossaryPrefill([]);
+    setModal('glossary');
+  }, []);
+
+  const handleAddTerm = useCallback((original) => {
+    setGlossaryPrefill(katakanaTerms(original));
+    setModal('glossary');
+  }, []);
+
   const handleTranslate = useCallback(
     (text, context = null) => {
       if (!byok.apiKey?.trim()) {
@@ -251,8 +282,7 @@ export default function App() {
         return;
       }
       const genre = book?.genre || 'generic';
-      // glossaryHash 占位为空串，术语表功能落地后换真实 hash（规格 §2）
-      const cacheKey = translationCacheKey(byok.model, genre, '', text, context);
+      const cacheKey = translationCacheKey(byok.model, genre, glossaryHash(glossary), text, context);
       setHistoryView(false);
       setSidebar({
         kind: 'translation',
@@ -266,7 +296,7 @@ export default function App() {
           model: byok.model,
           apiKey: byok.apiKey,
           messages: [
-            { role: 'system', content: translateSystemFor(genre) },
+            { role: 'system', content: appendGlossary(translateSystemFor(genre), glossary) },
             { role: 'user', content: translateUserContent(text, context) }
           ]
         })
@@ -302,7 +332,7 @@ export default function App() {
         })
         .catch(runNetwork);
     },
-    [byok, book, pushHistory]
+    [byok, book, pushHistory, glossary]
   );
 
   const handleChinese = useCallback(() => {
@@ -387,6 +417,7 @@ export default function App() {
       try {
         await removeUploadedBook(meta.id);
         await clearForBook(meta.id);
+        await clearGlossary(meta.id);
         await refreshLibrary();
       } catch (err) {
         setGlobalError(`删除失败：${err.message || '本地存储不可用'}`);
@@ -441,6 +472,9 @@ export default function App() {
                 ))}
               </select>
             )}
+            <button className="btn ghost small" onClick={handleOpenGlossary}>
+              术语
+            </button>
             <button className="btn ghost small" onClick={() => { setSettingsTab('reading'); setModal('settings'); }}>
               阅读设置
             </button>
@@ -488,6 +522,7 @@ export default function App() {
               historyView={historyView}
               onToggleHistory={handleToggleHistory}
               onSelectHistory={handleSelectHistory}
+              onAddTerm={handleAddTerm}
               onRetry={handleRetry}
               onCopy={handleCopy}
               onChinese={handleChinese}
@@ -522,6 +557,17 @@ export default function App() {
         onClose={() => setModal(null)}
         onSaveSettings={handleSaveSettings}
         onSaveByok={handleSaveByok}
+      />
+
+      <GlossaryModal
+        open={modal === 'glossary'}
+        initialEntries={glossary}
+        prefill={glossaryPrefill}
+        onClose={() => setModal(null)}
+        onSave={(entries) => {
+          if (book) saveGlossary(book.id, entries).then(setGlossary);
+          setModal(null);
+        }}
       />
     </div>
   );
