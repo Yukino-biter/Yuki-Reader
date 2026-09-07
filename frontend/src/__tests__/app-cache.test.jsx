@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App.jsx';
-import { chat } from '../lib/api.js';
+import { chat, chatStream } from '../lib/api.js';
 import { tokenizeChapter } from '../lib/tokenize.js';
 import { getTranslation, putTranslation } from '../lib/translationCache.js';
 import { loadBuiltInBook, bookFromUploadedText } from '../lib/books.js';
@@ -11,6 +11,7 @@ import { getUploadedBook, listUploadedBooks } from '../lib/storage.js';
 vi.mock('../lib/api.js', () => ({
   lookupDict: vi.fn(),
   chat: vi.fn(),
+  chatStream: vi.fn(),
   ApiError: class ApiError extends Error {}
 }));
 
@@ -83,6 +84,12 @@ beforeEach(() => {
   tokenizeChapter.mockResolvedValue(TOKEN_ROWS);
   getTranslation.mockResolvedValue(null);
   putTranslation.mockResolvedValue(undefined);
+  chatStream.mockImplementation(async (args) => {
+    const result = await chat(args);
+    args.onDelta?.(result);
+    return result;
+  });
+
 });
 
 describe('翻译结果缓存', () => {

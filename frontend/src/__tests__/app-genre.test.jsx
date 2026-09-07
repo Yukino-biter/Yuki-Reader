@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App.jsx';
-import { chat } from '../lib/api.js';
+import { chat, chatStream } from '../lib/api.js';
 import { tokenizeChapter } from '../lib/tokenize.js';
 import { getUploadedBook, listUploadedBooks, saveUploadedBook } from '../lib/storage.js';
 import { loadBuiltInBook, bookFromUploadedText } from '../lib/books.js';
@@ -10,6 +10,7 @@ import { loadBuiltInBook, bookFromUploadedText } from '../lib/books.js';
 vi.mock('../lib/api.js', () => ({
   lookupDict: vi.fn(),
   chat: vi.fn(),
+  chatStream: vi.fn(),
   ApiError: class ApiError extends Error {}
 }));
 
@@ -89,6 +90,12 @@ beforeEach(() => {
   localStorage.setItem('yuki:settings:v1', JSON.stringify({ showFurigana: false }));
   vi.clearAllMocks();
   tokenizeChapter.mockResolvedValue(TOKEN_ROWS);
+  chatStream.mockImplementation(async (args) => {
+    const result = await chat(args);
+    args.onDelta?.(result);
+    return result;
+  });
+
 });
 
 describe('书籍类别判定与提示词路由', () => {

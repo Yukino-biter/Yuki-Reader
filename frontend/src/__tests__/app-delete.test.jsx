@@ -2,12 +2,14 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App.jsx';
+import { chatStream } from '../lib/api.js';
 import { removeUploadedBook, listUploadedBooks } from '../lib/storage.js';
 import { clearForBook } from '../lib/tokenCache.js';
 
 vi.mock('../lib/api.js', () => ({
   lookupDict: vi.fn(),
   chat: vi.fn(),
+  chatStream: vi.fn(),
   ApiError: class ApiError extends Error {}
 }));
 
@@ -45,6 +47,12 @@ beforeEach(() => {
   listUploadedBooks.mockResolvedValue([]);
   listUploadedBooks.mockResolvedValueOnce([{ id: 'u1', name: '删除测试', encoding: 'UTF-8', uploadedAt: 1 }]);
   removeUploadedBook.mockResolvedValue(undefined);
+  chatStream.mockImplementation(async (args) => {
+    const result = await chat(args);
+    args.onDelta?.(result);
+    return result;
+  });
+
 });
 
 describe('首页删书接线', () => {

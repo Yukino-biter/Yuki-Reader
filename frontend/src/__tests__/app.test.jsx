@@ -2,13 +2,14 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App.jsx';
-import { lookupDict, chat } from '../lib/api.js';
+import { lookupDict, chat, chatStream } from '../lib/api.js';
 import { tokenizeChapter } from '../lib/tokenize.js';
 import { loadBuiltInBook } from '../lib/books.js';
 
 vi.mock('../lib/api.js', () => ({
   lookupDict: vi.fn(),
   chat: vi.fn(),
+  chatStream: vi.fn(),
   ApiError: class ApiError extends Error {}
 }));
 
@@ -70,6 +71,12 @@ beforeEach(() => {
   tokenizeChapter.mockResolvedValue(TOKEN_ROWS);
   lookupDict.mockResolvedValue([{ surface: '私', reading: 'わたし', pos: '名詞', glosses: ['I; myself'], glossesZh: ['我；我自己'] }]);
   chat.mockResolvedValue('你好。');
+  chatStream.mockImplementation(async (args) => {
+    const result = await chat(args);
+    args.onDelta?.(result);
+    return result;
+  });
+
 });
 
 describe('App 冒烟测试', () => {

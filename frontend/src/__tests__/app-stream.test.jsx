@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App.jsx';
-import { chat, chatStream } from '../lib/api.js';
+import { chatStream } from '../lib/api.js';
 import { tokenizeChapter } from '../lib/tokenize.js';
 import { getTranslation } from '../lib/translationCache.js';
 import { loadBuiltInBook, bookFromUploadedText } from '../lib/books.js';
@@ -52,11 +52,11 @@ const TOKEN_ROWS = [
 
 const BOOK = {
   id: 'u1',
-  name: '历史书',
+  name: '流式书',
   author: '',
   genre: 'generic',
   genreManual: true,
-  chapters: [{ title: '第 1 章', paragraphs: ['私は学生である。', '彼は笑った。', '今日は晴れ。'] }]
+  chapters: [{ title: '第 1 章', paragraphs: ['私は学生である。'] }]
 };
 
 function configByok() {
@@ -72,45 +72,50 @@ beforeEach(() => {
   vi.clearAllMocks();
   tokenizeChapter.mockResolvedValue(TOKEN_ROWS);
   getTranslation.mockResolvedValue(null);
-  chatStream.mockImplementation(async (args) => {
-    const result = await chat(args);
-    args.onDelta?.(result);
-    return result;
-  });
-  listUploadedBooks.mockResolvedValue([{ id: 'u1', name: '历史书', uploadedAt: 1 }]);
+  listUploadedBooks.mockResolvedValue([{ id: 'u1', name: '流式书', uploadedAt: 1 }]);
   getUploadedBook.mockResolvedValue({
-    id: 'u1', name: '历史书', text: 'x', uploadedAt: 1, genre: 'generic', genreManual: true
+    id: 'u1', name: '流式书', text: 'x', uploadedAt: 1, genre: 'generic', genreManual: true
   });
   bookFromUploadedText.mockReturnValue(BOOK);
 });
 
-describe('侧栏翻译历史', () => {
-  it('records translations, replays an entry and exits on new actions', async () => {
+describe('流式翻译', () => {
+  it('renders deltas progressively and finishes with copy button', async () => {
     configByok();
-    chat.mockResolvedValueOnce('译文一').mockResolvedValueOnce('译文二').mockResolvedValueOnce('译文三');
+    let release;
+    chatStream.mockImplementation(
+      ({ onDelta }) =>
+        new Promise((resolve) => {
+          onDelta('第一段');
+          release = () => {
+            onDelta('第二段');
+            resolve('第一段第二段');
+          };
+        })
+    );
     render(<App />);
-    await userEvent.click(await screen.findByRole('button', { name: '历史书' }));
+    await userEvent.click(await screen.findByRole('button', { name: '流式书' }));
     await screen.findAllByTestId('sentence');
 
     await userEvent.click(screen.getAllByTestId('sentence')[0]);
-    await screen.findByText('译文一');
-    await userEvent.click(screen.getAllByTestId('sentence')[1]);
-    await screen.findByText('译文二');
-
-    // 当前结果是第二条，历史里两条都有（断言收窄到侧栏，避开正文同名句子）
+    await screen.findByText('第一段');
     const pane = screen.getByRole('complementary');
-    await userEvent.click(within(pane).getByRole('button', { name: '历史（2）' }));
-    expect(within(pane).getByText('私は学生である。')).toBeInTheDocument();
-    expect(within(pane).getByText('彼は笑った。')).toBeInTheDocument();
+    expect(within(pane).queryByRole('button', { name: '复制' })).not.toBeInTheDocument(); // 流中不可复制
 
-    // 回放第一条
-    await userEvent.click(within(pane).getByText('译文一'));
+    release();
+    await screen.findByText('第一段第二段');
     expect(within(pane).getByRole('button', { name: '复制' })).toBeInTheDocument();
+  });
 
-    // 新操作退出历史视图并替换卡片
-    await userEvent.click(screen.getAllByTestId('sentence')[2]);
-    await screen.findByText('译文三');
-    const paneAfter = screen.getByRole('complementary');
-    expect(within(paneAfter).getByRole('button', { name: '历史（3）' })).toBeInTheDocument();
+  it('shows the error card with retry when the stream fails', async () => {
+    configByok();
+    chatStream.mockRejectedValueOnce(new Error('流断了'));
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: '流式书' }));
+    await screen.findAllByTestId('sentence');
+
+    await userEvent.click(screen.getAllByTestId('sentence')[0]);
+    await screen.findByText('流断了');
+    expect(screen.getByRole('button', { name: '重试' })).toBeInTheDocument();
   });
 });

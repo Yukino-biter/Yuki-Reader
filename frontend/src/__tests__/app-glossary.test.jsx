@@ -3,7 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App.jsx';
-import { chat } from '../lib/api.js';
+import { chat, chatStream } from '../lib/api.js';
 import { tokenizeChapter } from '../lib/tokenize.js';
 import { getTranslation, putTranslation } from '../lib/translationCache.js';
 import { getGlossary, glossaryHash } from '../lib/glossary.js';
@@ -13,6 +13,7 @@ import { getUploadedBook, listUploadedBooks, openDb } from '../lib/storage.js';
 vi.mock('../lib/api.js', () => ({
   lookupDict: vi.fn(),
   chat: vi.fn(),
+  chatStream: vi.fn(),
   ApiError: class ApiError extends Error {}
 }));
 
@@ -76,6 +77,11 @@ beforeEach(async () => {
   getTranslation.mockResolvedValue(null);
   putTranslation.mockResolvedValue(undefined);
   chat.mockResolvedValue('鲁路修说了。');
+  chatStream.mockImplementation(async (args) => {
+    const result = await chat(args);
+    args.onDelta?.(result);
+    return result;
+  });
   listUploadedBooks.mockResolvedValue([{ id: 'u1', name: '术语书', uploadedAt: 1 }]);
   getUploadedBook.mockResolvedValue({
     id: 'u1', name: '术语书', text: 'x', uploadedAt: 1, genre: 'lightnovel', genreManual: true

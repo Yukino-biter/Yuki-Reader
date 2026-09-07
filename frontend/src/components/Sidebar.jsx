@@ -230,7 +230,7 @@ export default function Sidebar({
               <span>正在翻译…</span>
             </div>
           )}
-          {state.status === 'done' && (
+          {(state.status === 'streaming' || state.status === 'done') && (
             <div className="translation-result">{state.result}</div>
           )}
           {state.status === 'error' && <p className="error-text">{state.error}</p>}

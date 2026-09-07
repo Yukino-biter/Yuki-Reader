@@ -6,7 +6,7 @@ import GlossaryModal from './components/GlossaryModal.jsx';
 import HomeView from './components/HomeView.jsx';
 import { loadBuiltInBook, bookFromUploadedText } from './lib/books.js';
 import { decodeFile } from './lib/encoding.js';
-import { lookupDict, chat } from './lib/api.js';
+import { lookupDict, chat, chatStream } from './lib/api.js';
 import {
   loadSettings,
   normalizeSettings,
@@ -291,14 +291,21 @@ export default function App() {
         lastAction: { type: 'translate', text, context }
       });
       const runNetwork = () => {
-        chat({
+        chatStream({
           baseUrl: byok.baseUrl,
           model: byok.model,
           apiKey: byok.apiKey,
           messages: [
             { role: 'system', content: appendGlossary(translateSystemFor(genre), glossary) },
             { role: 'user', content: translateUserContent(text, context) }
-          ]
+          ],
+          onDelta: (piece) => {
+            setSidebar((prev) =>
+              prev.kind === 'translation' && prev.original === text
+                ? { ...prev, status: 'streaming', result: (prev.result || '') + piece }
+                : prev
+            );
+          }
         })
           .then((content) => {
             setSidebar((prev) =>
