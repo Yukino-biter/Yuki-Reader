@@ -1,22 +1,21 @@
 import { tokenizeSentences } from './api.js';
+import { chapterCacheKey, getTokenRows, putTokenRows } from './tokenCache.js';
 
 // Session-memory cache: tokenized sentences are kept per book+chapter so
 // revisiting a chapter does not re-tokenize (spec §10).
 const sessionTokenCache = new Map();
-const TOKEN_BATCH_SIZE = 12;
+const TOKEN_BATCH_SIZE = 24;
 // 并发批次数：后端分词是纯 CPU 计算（不碰数据库），服务器 4 核可轻松并行；
 // 并发取批但结果按批次索引存放，最终按序拼回，保证句子顺序不乱。
 const CONCURRENCY = 4;
 
 /**
- * Tokenize a chapter in small batches via the backend API and report partial
+ * Tokenize a chapter in batches via the backend API and report partial
  * results via onProgress. Sentences are rendered as soon as their batch
- * finishes instead of waiting for the whole chapter (large uploaded books
- * without chapter headings would otherwise block the reader).
+ * finishes instead of waiting for the whole chapter.
  *
- * Batches run with limited concurrency (CONCURRENCY) instead of serially,
- * which cuts total wall time roughly by the concurrency factor. Progress only
- * reports the longest completed prefix so the reader never renders gaps.
+ * Cache chain: session memory → IndexedDB (token-cache) → backend API.
+ * IndexedDB misses/failures degrade silently to the session-only behaviour.
  */
 export async function tokenizeChapter(bookId, chapterIndex, sentences, onProgress = null) {
   const key = `${bookId}:${chapterIndex}`;
@@ -24,6 +23,14 @@ export async function tokenizeChapter(bookId, chapterIndex, sentences, onProgres
     const cached = sessionTokenCache.get(key);
     if (onProgress) onProgress(cached);
     return cached;
+  }
+
+  const persistentKey = chapterCacheKey(bookId, chapterIndex, sentences.join('\n'));
+  const persisted = await getTokenRows(persistentKey);
+  if (persisted) {
+    sessionTokenCache.set(key, persisted);
+    if (onProgress) onProgress(persisted);
+    return persisted;
   }
 
   const batches = [];
@@ -62,6 +69,7 @@ export async function tokenizeChapter(bookId, chapterIndex, sentences, onProgres
 
   const rows = results.flat();
   sessionTokenCache.set(key, rows);
+  if (rows.length > 0) putTokenRows(persistentKey, bookId, rows); // 异步写回，内部自吞异常
   return rows;
 }
 
