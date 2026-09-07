@@ -1786,3 +1786,54 @@ body {
   border-color: var(--accent);
   outline: none;
 }
+
+/* 首页删书入口 */
+.home-file-row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.home-file-row .home-file-item {
+  flex: 1;
+}
+
+.home-file-delete {
+  width: 26px;
+  margin-left: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.home-file-row:hover .home-file-delete,
+.home-file-delete:focus-visible {
+  opacity: 1;
+}
+
+.home-file-delete:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* 删除确认弹窗 */
+.modal-note {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.btn.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.btn.danger:hover {
+  filter: brightness(0.92);
+}

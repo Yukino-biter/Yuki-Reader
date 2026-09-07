@@ -14,9 +14,11 @@ import {
   saveByok,
   saveUploadedBook,
   listUploadedBooks,
-  getUploadedBook
+  getUploadedBook,
+  removeUploadedBook
 } from './lib/storage.js';
 import { clearTokenCache } from './lib/tokenize.js';
+import { clearForBook } from './lib/tokenCache.js';
 import {
   GENRE_KEYS,
   GENRE_LABELS,
@@ -335,6 +337,19 @@ export default function App() {
     saveByok(next);
   }, []);
 
+  const handleDeleteBook = useCallback(
+    async (meta) => {
+      try {
+        await removeUploadedBook(meta.id);
+        await clearForBook(meta.id);
+        await refreshLibrary();
+      } catch (err) {
+        setGlobalError(`删除失败：${err.message || '本地存储不可用'}`);
+      }
+    },
+    [refreshLibrary]
+  );
+
   const handleHome = useCallback(() => {
     setModal(null);
     setRoute('welcome');
@@ -412,6 +427,7 @@ export default function App() {
               onOpenBuiltIn={handleOpenBuiltIn}
               onUploadFile={handleUpload}
               onOpenBook={handleOpenUploaded}
+              onDeleteBook={handleDeleteBook}
               onOpenSettings={() => { setSettingsTab('reading'); setModal('settings'); }}
               onOpenByokSettings={() => { setSettingsTab('byok'); setModal('settings'); }}
               onToggleTheme={toggleTheme}

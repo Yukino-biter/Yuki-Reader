@@ -81,11 +81,13 @@ export default function HomeView({
   onOpenBook,
   onOpenSettings,
   onOpenByokSettings,
-  onToggleTheme
+  onToggleTheme,
+  onDeleteBook
 }) {
   const [usageOpen, setUsageOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const fileInputRef = useRef(null);
 
   const pickFile = () => fileInputRef.current?.click();
@@ -152,13 +154,23 @@ export default function HomeView({
             </p>
           ) : (
             books.map((b) => (
-              <button key={b.id} className="home-file-item" onClick={() => onOpenBook(b)}>
-                <span className="home-file-icon">{ICONS.file}</span>
-                <span className="home-file-info">
-                  <span className="home-file-name">{b.name}</span>
-                  {b.encoding ? <span className="home-file-meta">{b.encoding.toUpperCase()}</span> : null}
-                </span>
-              </button>
+              <div className="home-file-row" key={b.id}>
+                <button className="home-file-item" onClick={() => onOpenBook(b)}>
+                  <span className="home-file-icon">{ICONS.file}</span>
+                  <span className="home-file-info">
+                    <span className="home-file-name">{b.name}</span>
+                    {b.encoding ? <span className="home-file-meta">{b.encoding.toUpperCase()}</span> : null}
+                  </span>
+                </button>
+                <button
+                  className="home-file-delete"
+                  aria-label={`删除 ${b.name}`}
+                  title={`删除 ${b.name}`}
+                  onClick={() => setDeleteTarget(b)}
+                >
+                  ×
+                </button>
+              </div>
             ))
           )}
         </div>
@@ -332,6 +344,33 @@ export default function HomeView({
                 Yuki Reader 支持三种核心操作：点击正文中的任意单词，右侧会显示 JMDict 词典查询结果（含读音、词性和中文释义）；拖选一段文字，会调用 LLM 翻译所选内容；点击句子的空白处（非文字区域），则翻译整句。翻译功能需要先在「设置」中配置 API Key；开启「标注假名」后，含汉字的单词上方会自动显示平假名读音。
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="modal-backdrop" onClick={() => setDeleteTarget(null)}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="删除书籍"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="modal-header">
+              <h2>删除书籍</h2>
+              <button className="icon-btn" onClick={() => setDeleteTarget(null)} aria-label="关闭">×</button>
+            </header>
+            <div className="modal-body">
+              <p>确定删除《{deleteTarget.name}》吗？</p>
+              <p className="modal-note">删除不可恢复，将同时清除这本书的本地阅读进度与分词缓存。</p>
+            </div>
+            <footer className="modal-footer">
+              <button className="btn ghost" onClick={() => setDeleteTarget(null)}>取消</button>
+              <button className="btn danger" onClick={() => { onDeleteBook(deleteTarget); setDeleteTarget(null); }}>
+                删除
+              </button>
+            </footer>
           </div>
         </div>
       )}
