@@ -4,6 +4,8 @@
 
 Yuki Reader 是一个个人日语阅读应用：上传 TXT 或打开内置书《こころ》，点词即可查 JMDict 词典，点句或拖选即可调用你自己的大模型翻译，汉字上方自动标注平假名。首页为和纸风工作台，支持右上角「日间 / 夜间」切换。
 
+[![CI](https://github.com/Yukino-biter/Yuki-Reader/actions/workflows/ci.yml/badge.svg)](https://github.com/Yukino-biter/Yuki-Reader/actions/workflows/ci.yml)
+
 ![Yuki Reader 首页](docs/screenshots/home.png)
 
 ## 功能特点
