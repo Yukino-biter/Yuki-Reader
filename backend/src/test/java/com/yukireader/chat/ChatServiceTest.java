@@ -9,11 +9,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -174,5 +177,51 @@ class ChatServiceTest {
         assertThat(ChatService.buildUrl("https://api.deepseek.com/")).isEqualTo("https://api.deepseek.com/chat/completions");
         assertThat(ChatService.buildUrl("https://api.openai.com/v1")).isEqualTo("https://api.openai.com/v1/chat/completions");
         assertThat(ChatService.buildUrl("https://example.com/chat/completions")).isEqualTo("https://example.com/chat/completions");
+    }
+
+    @Test
+    void openStreamReturnsUpstreamBodyOnSuccess() throws Exception {
+        HttpResponse<InputStream> streamResponse = mock(HttpResponse.class);
+        when(streamResponse.statusCode()).thenReturn(200);
+        when(streamResponse.body()).thenReturn(new ByteArrayInputStream(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"你\"}}]}\n\ndata: [DONE]\n\n".getBytes(StandardCharsets.UTF_8)));
+        doReturn(streamResponse).when(client).send(any(HttpRequest.class), any());
+
+        HttpResponse<InputStream> upstream = service.openStream(request());
+
+        assertThat(upstream.statusCode()).isEqualTo(200);
+        String body = new String(upstream.body().readAllBytes(), StandardCharsets.UTF_8);
+        assertThat(body).contains("\"delta\"");
+        assertThat(body).contains("[DONE]");
+    }
+
+    @Test
+    void openStreamMapsUpstreamErrors() throws Exception {
+        HttpResponse<InputStream> streamResponse = mock(HttpResponse.class);
+        when(streamResponse.statusCode()).thenReturn(401);
+        when(streamResponse.body()).thenReturn(new ByteArrayInputStream(
+                "{\"error\":{\"message\":\"Invalid API key\"}}".getBytes(StandardCharsets.UTF_8)));
+        doReturn(streamResponse).when(client).send(any(HttpRequest.class), any());
+
+        assertThatThrownBy(() -> service.openStream(request()))
+                .isInstanceOfSatisfying(ChatServiceException.class, e -> {
+                    assertThat(e.code()).isEqualTo("invalid_key");
+                    assertThat(e.getMessage()).contains("API Key 无效");
+                });
+    }
+
+    @Test
+    void openStreamRejectsInvalidInputWithoutCallingUpstream() throws Exception {
+        ChatRequest bad = new ChatRequest(
+                "https://api.deepseek.com",
+                "deepseek-chat",
+                "  ",
+                List.of(new ChatMessage("user", "hi")));
+
+        assertThatThrownBy(() -> service.openStream(bad))
+                .isInstanceOfSatisfying(ChatServiceException.class, e -> {
+                    assertThat(e.code()).isEqualTo("bad_request");
+                });
+        verify(client, org.mockito.Mockito.never()).send(any(), any());
     }
 }

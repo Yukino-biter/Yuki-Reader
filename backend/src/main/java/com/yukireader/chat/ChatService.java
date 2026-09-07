@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -23,6 +24,9 @@ import org.springframework.stereotype.Service;
  * Thin proxy to any OpenAI-compatible /chat/completions endpoint (spec §4).
  * The API key is forwarded in the Authorization header only; it is never
  * persisted and never logged. Request/response bodies are not logged either.
+ * Streaming mode relays the upstream SSE bytes verbatim (spec §5 of the
+ * 2026-09-07 upgrades): this service opens the upstream connection and hands
+ * the raw body to the controller.
  */
 @Service
 public class ChatService {
@@ -50,29 +54,9 @@ public class ChatService {
 
     public String complete(ChatRequest request) {
         validate(request);
-        String url = buildUrl(request.baseUrl());
-
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", request.model().trim());
-        body.put("messages", request.messages());
-
-        String json;
-        try {
-            json = mapper.writeValueAsString(body);
-        } catch (JsonProcessingException e) {
-            throw new ChatServiceException("bad_request", "请求体序列化失败");
-        }
-
-        HttpRequest httpRequest = HttpRequest.newBuilder(URI.create(url))
-                .timeout(timeout)
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + request.apiKey().trim())
-                .POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
-                .build();
-
         HttpResponse<String> response;
         try {
-            response = client.send(httpRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            response = client.send(buildRequest(request, false), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         } catch (HttpTimeoutException e) {
             throw new ChatServiceException("timeout", "请求上游超时，请稍后重试");
         } catch (InterruptedException e) {
@@ -96,8 +80,60 @@ public class ChatService {
             }
         }
 
+        throw mapUpstreamError(response.statusCode(), responseBody);
+    }
+
+    /**
+     * Opens the upstream SSE stream for {@code stream:true} requests. Errors
+     * (non-2xx) are read and mapped before returning, so the controller can
+     * relay a healthy body. The caller owns and must drain the returned body.
+     */
+    public HttpResponse<InputStream> openStream(ChatRequest request) {
+        validate(request);
+        HttpResponse<InputStream> response;
+        try {
+            response = client.send(buildRequest(request, true), HttpResponse.BodyHandlers.ofInputStream());
+        } catch (HttpTimeoutException e) {
+            throw new ChatServiceException("timeout", "请求上游超时，请稍后重试");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ChatServiceException("network", "请求被中断，请重试");
+        } catch (IOException e) {
+            throw new ChatServiceException("network", "无法连接上游服务，请检查 Base URL 或网络");
+        }
+
+        if (response.statusCode() >= 400) {
+            String errorBody;
+            try (InputStream in = response.body()) {
+                errorBody = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                errorBody = null;
+            }
+            throw mapUpstreamError(response.statusCode(), errorBody);
+        }
+        return response;
+    }
+
+    private HttpRequest buildRequest(ChatRequest request, boolean stream) throws JsonProcessingException {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", request.model().trim());
+        body.put("messages", request.messages());
+        if (stream) {
+            body.put("stream", true);
+        }
+
+        String json = mapper.writeValueAsString(body);
+        return HttpRequest.newBuilder(URI.create(buildUrl(request.baseUrl())))
+                .timeout(timeout)
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + request.apiKey().trim())
+                .POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
+                .build();
+    }
+
+    private ChatServiceException mapUpstreamError(int statusCode, String responseBody) {
         String upstreamMessage = extractUpstreamError(responseBody);
-        throw switch (response.statusCode()) {
+        return switch (statusCode) {
             case 401, 403 -> new ChatServiceException("invalid_key", "API Key 无效，请检查设置");
             case 429 -> new ChatServiceException("rate_limited", "额度不足或限流，请稍后重试");
             case 400, 422 -> new ChatServiceException("bad_request", upstreamMessage);
