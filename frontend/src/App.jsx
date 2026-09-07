@@ -192,6 +192,8 @@ export default function App() {
         }
         const nextBook = bookFromUploadedText(stored.name + '.txt', stored.text, stored.encoding);
         nextBook.id = stored.id;
+        nextBook.genre = stored.genre ?? null;
+        nextBook.genreManual = !!stored.genreManual;
         openBook(nextBook);
         setModal(null);
       } catch (err) {

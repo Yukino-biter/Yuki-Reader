@@ -14,6 +14,7 @@ export function loadBuiltInBook() {
         name: data.name || 'こころ',
         author: data.author || '夏目漱石',
         sourceLabel: data.sourceLabel || '青空文庫',
+        genre: 'literature', // 内置文学书，固定标签不参与 LLM 判定（规格 §3.1）
         chapters: data.chapters
       }));
   }
@@ -27,6 +28,8 @@ export function bookFromUploadedText(fileName, text, encoding) {
     author: '',
     sourceLabel: '本地上传',
     encoding,
+    genre: null, // 打开后由 LLM 静默判定或用户手动设置（规格 §3.1）
+    genreManual: false,
     chapters: splitChapters(text)
   };
 }
