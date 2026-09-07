@@ -47,6 +47,8 @@ export default function App() {
   const [libraryBooks, setLibraryBooks] = useState([]);
   const [globalError, setGlobalError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [historyView, setHistoryView] = useState(false);
   const sidebarRef = useRef(sidebar);
   const copyTimer = useRef(null);
 
@@ -205,6 +207,7 @@ export default function App() {
   );
 
   const handleWord = useCallback((token) => {
+    setHistoryView(false);
     setSidebar({ kind: 'dict-loading', token, lastAction: { type: 'dict', token } });
     lookupDict(token.basic)
       .then((entries) => {
@@ -224,6 +227,23 @@ export default function App() {
       });
   }, []);
 
+  const pushHistory = useCallback((original, result) => {
+    setHistory((prev) => {
+      const rest = prev.filter((h) => h.original !== original);
+      return [
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, original, result, at: Date.now() },
+        ...rest
+      ].slice(0, 20);
+    });
+  }, []);
+
+  const handleToggleHistory = useCallback(() => setHistoryView((v) => !v), []);
+
+  const handleSelectHistory = useCallback((entry) => {
+    setHistoryView(false);
+    setSidebar({ kind: 'translation', original: entry.original, status: 'done', result: entry.result });
+  }, []);
+
   const handleTranslate = useCallback(
     (text, context = null) => {
       if (!byok.apiKey?.trim()) {
@@ -233,6 +253,7 @@ export default function App() {
       const genre = book?.genre || 'generic';
       // glossaryHash 占位为空串，术语表功能落地后换真实 hash（规格 §2）
       const cacheKey = translationCacheKey(byok.model, genre, '', text, context);
+      setHistoryView(false);
       setSidebar({
         kind: 'translation',
         original: text,
@@ -255,6 +276,7 @@ export default function App() {
                 ? { ...prev, status: 'done', result: content }
                 : prev
             );
+            pushHistory(text, content);
             putTranslation(cacheKey, content);
           })
           .catch((err) => {
@@ -273,13 +295,14 @@ export default function App() {
                 ? { ...prev, status: 'done', result: cached }
                 : prev
             );
+            pushHistory(text, cached);
             return;
           }
           runNetwork();
         })
         .catch(runNetwork);
     },
-    [byok, book]
+    [byok, book, pushHistory]
   );
 
   const handleChinese = useCallback(() => {
@@ -289,6 +312,7 @@ export default function App() {
       setSidebar({ kind: 'prompt', message: '中文释义需要 API Key，请先前往设置配置。' });
       return;
     }
+    setHistoryView(false);
     const token = cur.token;
     const userContent =
       cur.kind === 'dict'
@@ -460,6 +484,10 @@ export default function App() {
             <Sidebar
               state={sidebar}
               copied={copied}
+              history={history}
+              historyView={historyView}
+              onToggleHistory={handleToggleHistory}
+              onSelectHistory={handleSelectHistory}
               onRetry={handleRetry}
               onCopy={handleCopy}
               onChinese={handleChinese}
