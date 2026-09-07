@@ -107,16 +107,23 @@ export function saveProgress(bookId, chapter, ratio) {
   }
 }
 
-// --- IndexedDB for uploaded books ---
+// --- IndexedDB for uploaded books + token cache ---
 const DB_NAME = 'yuki-books';
 const STORE = 'books';
+const TOKEN_CACHE_STORE = 'token-cache';
+const DB_VERSION = 2;
 
-function openDb() {
+export function openDb() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
-      if (!req.result.objectStoreNames.contains(STORE)) {
-        req.result.createObjectStore(STORE, { keyPath: 'id' });
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        db.createObjectStore(STORE, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(TOKEN_CACHE_STORE)) {
+        const cacheStore = db.createObjectStore(TOKEN_CACHE_STORE, { keyPath: 'id' });
+        cacheStore.createIndex('byBook', 'bookId', { unique: false });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -129,7 +136,10 @@ export async function saveUploadedBook(book) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite');
     tx.objectStore(STORE).put(book);
-    tx.oncomplete = () => resolve();
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
     tx.onerror = () => reject(tx.error);
   });
 }
@@ -139,13 +149,17 @@ export async function listUploadedBooks() {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, 'readonly');
     const req = tx.objectStore(STORE).getAll();
-    req.onsuccess = () =>
-      resolve(
-        req.result
-          .map((b) => ({ id: b.id, name: b.name, size: b.size, encoding: b.encoding, uploadedAt: b.uploadedAt }))
-          .sort((a, b) => b.uploadedAt - a.uploadedAt)
-      );
-    req.onerror = () => reject(req.error);
+    let result = [];
+    req.onsuccess = () => {
+      result = req.result
+        .map((b) => ({ id: b.id, name: b.name, size: b.size, encoding: b.encoding, uploadedAt: b.uploadedAt }))
+        .sort((a, b) => b.uploadedAt - a.uploadedAt);
+    };
+    tx.oncomplete = () => {
+      db.close();
+      resolve(result);
+    };
+    tx.onerror = () => reject(tx.error);
   });
 }
 
@@ -154,7 +168,32 @@ export async function getUploadedBook(id) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, 'readonly');
     const req = tx.objectStore(STORE).get(id);
-    req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => reject(req.error);
+    let result = null;
+    req.onsuccess = () => {
+      result = req.result || null;
+    };
+    tx.oncomplete = () => {
+      db.close();
+      resolve(result);
+    };
+    tx.onerror = () => reject(tx.error);
   });
+}
+
+export async function removeUploadedBook(id) {
+  const db = await openDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => reject(tx.error);
+  });
+  try {
+    localStorage.removeItem(progressKey(id));
+  } catch {
+    // localStorage 不可用（隐私模式）：忽略
+  }
 }
