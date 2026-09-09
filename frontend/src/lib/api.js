@@ -66,15 +66,17 @@ export async function chat({ baseUrl, model, apiKey, messages }) {
  * 每个 delta 触发 onDelta(piece)，最终返回完整译文。
  * 上游不支持流式时后端返回 JSON 或纯文本，解析不到任何 delta 则按 JSON 兜底。
  */
-export async function chatStream({ baseUrl, model, apiKey, messages, onDelta }) {
+export async function chatStream({ baseUrl, model, apiKey, messages, onDelta, signal }) {
   let res;
   try {
     res = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ baseUrl, model, apiKey, messages })
+      body: JSON.stringify({ baseUrl, model, apiKey, messages }),
+      signal
     });
-  } catch {
+  } catch (err) {
+    if (err?.name === 'AbortError') throw err;
     throw new ApiError('网络请求失败，请检查网络连接。', 0, 'network');
   }
 

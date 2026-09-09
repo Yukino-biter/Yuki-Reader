@@ -58,4 +58,28 @@ describe('chatStream', () => {
 
     await expect(chatStream({ messages: [] })).rejects.toBeInstanceOf(ApiError);
   });
+
+  it('passes signal through to fetch', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn(async () => sseResponse(
+      'data: {"choices":[{"delta":{"content":"好"}}]}\n\n'
+    ));
+    vi.stubGlobal('fetch', fetchMock);
+    await chatStream({ messages: [], signal: controller.signal, onDelta: () => {} });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/chat/stream',
+      expect.objectContaining({ signal: controller.signal })
+    );
+  });
+
+  it('rethrows AbortError instead of mapping it to a network error', async () => {
+    const abortError = new DOMException('The operation was aborted.', 'AbortError');
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw abortError;
+    }));
+
+    await expect(chatStream({ messages: [], signal: new AbortController().signal }))
+      .rejects.toBe(abortError);
+  });
 });
