@@ -63,6 +63,7 @@ export default function Sidebar({
   onRetry,
   onCopy,
   onChinese,
+  onStopStream,
   onOpenSettings
 }) {
   if (state.kind === 'empty') {
@@ -202,12 +203,21 @@ export default function Sidebar({
 
     if (state.kind === 'translation') {
       const actions = [];
-      if (state.status === 'done') {
+      if (state.status === 'streaming') {
+        actions.push(
+          <button key="stop" className="btn small ghost" onClick={onStopStream}>
+            停止
+          </button>
+        );
+      }
+      if (state.status === 'done' || state.status === 'stopped') {
         actions.push(
           <button key="copy" className="btn small ghost" onClick={() => onCopy(state.result)}>
             {copied ? '已复制' : '复制'}
           </button>
         );
+      }
+      if (state.status === 'done') {
         actions.push(
           <button key="term" className="btn small ghost" onClick={() => onAddTerm(state.original)}>
             + 术语
@@ -230,9 +240,10 @@ export default function Sidebar({
               <span>正在翻译…</span>
             </div>
           )}
-          {(state.status === 'streaming' || state.status === 'done') && (
+          {(state.status === 'streaming' || state.status === 'done' || state.status === 'stopped') && (
             <div className="translation-result">{state.result}</div>
           )}
+          {state.status === 'stopped' && <p className="muted">已停止，译文可能不完整。</p>}
           {state.status === 'error' && <p className="error-text">{state.error}</p>}
         </Card>
       );

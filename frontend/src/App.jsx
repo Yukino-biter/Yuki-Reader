@@ -71,6 +71,8 @@ export default function App() {
   const [glossaryPrefill, setGlossaryPrefill] = useState([]);
   const sidebarRef = useRef(sidebar);
   const copyTimer = useRef(null);
+  const streamSeqRef = useRef(0);
+  const streamAbortRef = useRef(null);
 
   // 当前书术语表随书加载（规格 §4）
   useEffect(() => {
@@ -242,6 +244,7 @@ export default function App() {
   );
 
   const handleWord = useCallback((token) => {
+    cancelStream();
     setHistoryView(false);
     setSidebar({ kind: 'dict-loading', token, lastAction: { type: 'dict', token } });
     lookupDict(token.basic)
@@ -276,10 +279,31 @@ export default function App() {
 
   const handleToggleHistory = useCallback(() => setHistoryView((v) => !v), []);
 
+  // 流式中止（规格 §3）：cancelStream/beginStream 递增序号使旧流回调全部失效；
+  // stopStream 只中止不递增，让 catch 把卡片置为 stopped
+  const cancelStream = useCallback(() => {
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = null;
+    streamSeqRef.current += 1;
+  }, []);
+
+  const beginStream = useCallback(() => {
+    const controller = new AbortController();
+    streamAbortRef.current = controller;
+    return { seq: streamSeqRef.current, signal: controller.signal };
+  }, []);
+
+  const stopStream = useCallback(() => {
+    streamAbortRef.current?.abort();
+  }, []);
+
+  useEffect(() => () => streamAbortRef.current?.abort(), []);
+
   const handleSelectHistory = useCallback((entry) => {
+    cancelStream();
     setHistoryView(false);
     setSidebar({ kind: 'translation', original: entry.original, status: 'done', result: entry.result });
-  }, []);
+  }, [cancelStream]);
 
   const handleOpenGlossary = useCallback(() => {
     setGlossaryPrefill([]);
@@ -299,6 +323,7 @@ export default function App() {
       }
       const genre = book?.genre || 'generic';
       const cacheKey = translationCacheKey(byok.model, genre, glossaryHash(glossary), text, context);
+      cancelStream(); // 缓存命中与否，旧流都作废
       setHistoryView(false);
       setSidebar({
         kind: 'translation',
@@ -307,15 +332,18 @@ export default function App() {
         lastAction: { type: 'translate', text, context }
       });
       const runNetwork = () => {
+        const { seq, signal } = beginStream();
         chatStream({
           baseUrl: byok.baseUrl,
           model: byok.model,
           apiKey: byok.apiKey,
+          signal,
           messages: [
             { role: 'system', content: appendGlossary(translateSystemFor(genre), glossary) },
             { role: 'user', content: translateUserContent(text, context) }
           ],
           onDelta: (piece) => {
+            if (seq !== streamSeqRef.current) return;
             setSidebar((prev) =>
               prev.kind === 'translation' && prev.original === text
                 ? { ...prev, status: 'streaming', result: (prev.result || '') + piece }
@@ -324,6 +352,7 @@ export default function App() {
           }
         })
           .then((content) => {
+            if (seq !== streamSeqRef.current) return;
             setSidebar((prev) =>
               prev.kind === 'translation' && prev.original === text
                 ? { ...prev, status: 'done', result: content }
@@ -333,6 +362,15 @@ export default function App() {
             putTranslation(cacheKey, content);
           })
           .catch((err) => {
+            if (seq !== streamSeqRef.current) return;
+            if (err?.name === 'AbortError') {
+              setSidebar((prev) =>
+                prev.kind === 'translation' && prev.original === text
+                  ? { ...prev, status: 'stopped' }
+                  : prev
+              );
+              return;
+            }
             setSidebar((prev) =>
               prev.kind === 'translation' && prev.original === text
                 ? { ...prev, status: 'error', error: err.message }
@@ -355,7 +393,7 @@ export default function App() {
         })
         .catch(runNetwork);
     },
-    [byok, book, pushHistory, glossary]
+    [byok, book, pushHistory, glossary, cancelStream, beginStream]
   );
 
   const handleChinese = useCallback(() => {
@@ -365,6 +403,7 @@ export default function App() {
       setSidebar({ kind: 'prompt', message: '中文释义需要 API Key，请先前往设置配置。' });
       return;
     }
+    cancelStream();
     setHistoryView(false);
     const token = cur.token;
     const userContent =
@@ -397,7 +436,7 @@ export default function App() {
             : prev
         );
       });
-  }, [byok, book]);
+  }, [byok, book, cancelStream]);
 
   const handleRetry = useCallback(() => {
     const cur = sidebarRef.current;
@@ -549,6 +588,7 @@ export default function App() {
               onRetry={handleRetry}
               onCopy={handleCopy}
               onChinese={handleChinese}
+              onStopStream={stopStream}
               onOpenSettings={() => { setSettingsTab('byok'); setModal('settings'); }}
             />
           </aside>

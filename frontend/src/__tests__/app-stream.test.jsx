@@ -1,10 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App.jsx';
 import { chatStream } from '../lib/api.js';
 import { tokenizeChapter } from '../lib/tokenize.js';
-import { getTranslation } from '../lib/translationCache.js';
+import { getTranslation, putTranslation } from '../lib/translationCache.js';
+import { saveHistory } from '../lib/translationHistory.js';
 import { loadBuiltInBook, bookFromUploadedText } from '../lib/books.js';
 import { getUploadedBook, listUploadedBooks } from '../lib/storage.js';
 
@@ -34,6 +35,11 @@ vi.mock('../lib/translationCache.js', () => ({
   putTranslation: vi.fn()
 }));
 
+vi.mock('../lib/translationHistory.js', () => ({
+  loadHistory: vi.fn(async () => []),
+  saveHistory: vi.fn()
+}));
+
 vi.mock('../lib/books.js', () => ({
   loadBuiltInBook: vi.fn(),
   bookFromUploadedText: vi.fn()
@@ -56,7 +62,7 @@ const BOOK = {
   author: '',
   genre: 'generic',
   genreManual: true,
-  chapters: [{ title: '第 1 章', paragraphs: ['私は学生である。'] }]
+  chapters: [{ title: '第 1 章', paragraphs: ['私は学生である。', '彼は笑った。'] }]
 };
 
 function configByok() {
@@ -117,5 +123,94 @@ describe('流式翻译', () => {
     await userEvent.click(screen.getAllByTestId('sentence')[0]);
     await screen.findByText('流断了');
     expect(screen.getByRole('button', { name: '重试' })).toBeInTheDocument();
+  });
+
+  it('aborts the previous stream when a new translation starts', async () => {
+    configByok();
+    const signals = [];
+    chatStream
+      .mockImplementationOnce(({ onDelta, signal }) => {
+        signals.push(signal);
+        return new Promise(() => {
+          onDelta('旧流');
+        });
+      })
+      .mockImplementationOnce(({ onDelta }) => new Promise((resolve) => {
+        onDelta('新流');
+        resolve('新流');
+      }));
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: '流式书' }));
+    await screen.findAllByTestId('sentence');
+
+    await userEvent.click(screen.getAllByTestId('sentence')[0]);
+    await screen.findByText('旧流');
+    await userEvent.click(screen.getAllByTestId('sentence')[1]);
+    await screen.findByText('新流');
+
+    expect(signals[0].aborted).toBe(true);
+    const pane = screen.getByRole('complementary');
+    expect(within(pane).queryByText('旧流')).not.toBeInTheDocument();
+  });
+
+  it('re-translating the same text does not interleave old deltas', async () => {
+    configByok();
+    const deltas = [];
+    const signals = [];
+    let pendingResolve;
+    chatStream.mockImplementation(({ onDelta, signal }) => {
+      deltas.push(onDelta);
+      signals.push(signal);
+      return new Promise((resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('已中止', 'AbortError')));
+        pendingResolve = resolve;
+      });
+    });
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: '流式书' }));
+    await screen.findAllByTestId('sentence');
+
+    await userEvent.click(screen.getAllByTestId('sentence')[0]);
+    await userEvent.click(screen.getAllByTestId('sentence')[0]); // 同一句再点
+
+    expect(signals[0].aborted).toBe(true);
+    await act(async () => {
+      deltas[0]('甲'); // 旧流迟到 delta，必须被丢弃
+    });
+    await act(async () => {
+      deltas[1]('乙');
+      deltas[1]('乙');
+      pendingResolve('乙乙');
+    });
+
+    await screen.findByText('乙乙');
+    expect(screen.queryByText('甲乙乙')).not.toBeInTheDocument();
+    expect(screen.queryByText('甲')).not.toBeInTheDocument();
+  });
+
+  it('stop keeps the partial result without writing cache or history', async () => {
+    configByok();
+    let streamDelta;
+    chatStream.mockImplementation(({ onDelta, signal }) => new Promise((resolve, reject) => {
+      signal.addEventListener('abort', () => reject(new DOMException('已中止', 'AbortError')));
+      streamDelta = onDelta;
+    }));
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: '流式书' }));
+    await screen.findAllByTestId('sentence');
+
+    await userEvent.click(screen.getAllByTestId('sentence')[0]);
+    await act(async () => {
+      streamDelta('部分译');
+    });
+    await screen.findByText('部分译');
+
+    await userEvent.click(screen.getByRole('button', { name: '停止' }));
+    await screen.findByText('已停止，译文可能不完整。');
+    const pane = screen.getByRole('complementary');
+    expect(within(pane).getByRole('button', { name: '复制' })).toBeInTheDocument();
+    expect(within(pane).queryByRole('button', { name: '+ 术语' })).not.toBeInTheDocument();
+    expect(putTranslation).not.toHaveBeenCalled();
+    expect(saveHistory).not.toHaveBeenCalled();
   });
 });
