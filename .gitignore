@@ -11,6 +11,7 @@ dist/
 frontend/public/kuromoji-dict/
 frontend/dist/
 frontend/node_modules/
+.vite/
 
 # backend runtime artifacts
 backend/target/

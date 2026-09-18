@@ -5,8 +5,44 @@ import {
   getUploadedBook,
   removeUploadedBook,
   listUploadedBooks,
-  openDb
+  openDb,
+  loadByok,
+  saveByok
 } from '../storage.js';
+
+describe('BYOK 按提供商记忆 API Key', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('migrates a legacy flat apiKey into the provider map', () => {
+    localStorage.setItem(
+      'yuki:byok:v1',
+      JSON.stringify({ provider: 'deepseek', baseUrl: 'https://api.deepseek.com', model: 'm', apiKey: 'sk-old' })
+    );
+    const byok = loadByok();
+    expect(byok.apiKeys.deepseek).toBe('sk-old');
+    expect(byok.apiKey).toBe('sk-old');
+  });
+
+  it('saveByok archives the active key under its provider', () => {
+    saveByok({ provider: 'glm', baseUrl: 'https://g', model: 'm', apiKey: 'sk-glm', apiKeys: {} });
+    saveByok({ provider: 'deepseek', baseUrl: 'https://d', model: 'm', apiKey: 'sk-ds' });
+    const byok = loadByok();
+    expect(byok.apiKeys.glm).toBe('sk-glm');
+    expect(byok.apiKeys.deepseek).toBe('sk-ds');
+    expect(byok.provider).toBe('deepseek');
+    expect(byok.apiKey).toBe('sk-ds');
+  });
+
+  it('keeps existing provider keys when re-saving without an apiKeys map', () => {
+    saveByok({ provider: 'glm', baseUrl: 'https://g', model: 'm', apiKey: 'sk-glm', apiKeys: {} });
+    saveByok({ provider: 'deepseek', baseUrl: 'https://d', model: 'm', apiKey: 'sk-ds' });
+    // 切回 GLM 时只带出 glm 的 key（模拟设置弹窗的切换行为）
+    saveByok({ provider: 'glm', baseUrl: 'https://g', model: 'm', apiKey: 'sk-glm' });
+    const byok = loadByok();
+    expect(byok.apiKeys.deepseek).toBe('sk-ds');
+    expect(byok.apiKey).toBe('sk-glm');
+  });
+});
 
 // 用 clear 清空数据而非 deleteDatabase：删库会被遗留的未关闭连接 block，
 // clear 走普通事务不会被阻塞。

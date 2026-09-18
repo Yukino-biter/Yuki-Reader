@@ -1,5 +1,16 @@
+import { useEffect, useState } from 'react';
 import { toHiragana } from '../lib/kana.js';
 import { translatePos } from '../lib/pos.js';
+
+// 等待计时（首 token 延迟可见化）
+function Elapsed({ from }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return <>（已 {Math.max(0, Math.round((now - from) / 1000))} 秒）</>;
+}
 
 function Card({ title, children, actions }) {
   return (
@@ -203,14 +214,15 @@ export default function Sidebar({
 
     if (state.kind === 'translation') {
       const actions = [];
-      if (state.status === 'streaming') {
+      // 加载中（等首 token）与流式中都可主动取消
+      if (state.status === 'loading' || state.status === 'streaming') {
         actions.push(
           <button key="stop" className="btn small ghost" onClick={onStopStream}>
             停止
           </button>
         );
       }
-      if (state.status === 'done' || state.status === 'stopped') {
+      if ((state.status === 'done' || state.status === 'stopped') && state.result) {
         actions.push(
           <button key="copy" className="btn small ghost" onClick={() => onCopy(state.result)}>
             {copied ? '已复制' : '复制'}
@@ -237,7 +249,9 @@ export default function Sidebar({
           {state.status === 'loading' && (
             <div className="inline-state">
               <span className="spinner small-spinner" />
-              <span>正在翻译…</span>
+              <span>
+                正在翻译{state.startedAt ? <Elapsed from={state.startedAt} /> : ''}…
+              </span>
             </div>
           )}
           {(state.status === 'streaming' || state.status === 'done' || state.status === 'stopped') && (

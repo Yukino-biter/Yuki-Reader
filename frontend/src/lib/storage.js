@@ -72,19 +72,37 @@ export const DEFAULT_BYOK = {
   provider: 'deepseek',
   baseUrl: 'https://api.deepseek.com',
   model: 'deepseek-v4-flash',
-  apiKey: ''
+  apiKey: '',
+  apiKeys: {} // 按提供商记忆各自的 API Key（规格见交接文档 §5.8）
 };
 
 export function loadByok() {
   try {
-    return { ...DEFAULT_BYOK, ...JSON.parse(localStorage.getItem(BYOK_KEY) || '{}') };
+    const raw = { ...DEFAULT_BYOK, ...JSON.parse(localStorage.getItem(BYOK_KEY) || '{}') };
+    const apiKeys = { ...(raw.apiKeys || {}) };
+    // 兼容旧数据：顶层 apiKey 归入其所属提供商，不覆盖已有的同名条目
+    if (raw.apiKey && raw.provider && !apiKeys[raw.provider]) {
+      apiKeys[raw.provider] = raw.apiKey;
+    }
+    return { ...raw, apiKeys };
   } catch {
-    return { ...DEFAULT_BYOK };
+    return { ...DEFAULT_BYOK, apiKeys: {} };
   }
 }
 
 export function saveByok(config) {
-  localStorage.setItem(BYOK_KEY, JSON.stringify(config));
+  // 与已存映射合并后再归档当前 key，避免不带 apiKeys 的保存丢失其他提供商的 key
+  let stored = {};
+  try {
+    stored = JSON.parse(localStorage.getItem(BYOK_KEY) || '{}');
+  } catch {
+    stored = {};
+  }
+  const apiKeys = { ...(stored.apiKeys || {}), ...(config.apiKeys || {}) };
+  if (config.provider) {
+    apiKeys[config.provider] = config.apiKey || '';
+  }
+  localStorage.setItem(BYOK_KEY, JSON.stringify({ ...config, apiKeys }));
 }
 
 export function loadProgress(bookId) {

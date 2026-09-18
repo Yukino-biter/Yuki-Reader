@@ -113,7 +113,7 @@ npm --prefix frontend run dev            # 前端 http://localhost:5173，/api �
 
 技术栈：React 18 + Vite 5（前端）· Spring Boot 3.5 + SQLite + kuromoji-java（后端）· Maven 单 fat jar 部署。
 
-- 前端测试：`npm --prefix frontend test`（132 用例）
+- 前端测试：`npm --prefix frontend test`（136 用例）
 - 后端测试：`mvn -f backend\pom.xml test`（42 用例）
 - 设计规格与实现细节：`docs/superpowers/`
 

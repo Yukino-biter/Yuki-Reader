@@ -188,8 +188,7 @@ describe('流式翻译', () => {
     expect(screen.queryByText('甲')).not.toBeInTheDocument();
   });
 
-  it('stop keeps the partial result without writing cache or history', async () => {
-    configByok();
+  it('stop keeps the partial result without writing cache or history', async () => {    configByok();
     let streamDelta;
     chatStream.mockImplementation(({ onDelta, signal }) => new Promise((resolve, reject) => {
       signal.addEventListener('abort', () => reject(new DOMException('已中止', 'AbortError')));
@@ -210,6 +209,26 @@ describe('流式翻译', () => {
     const pane = screen.getByRole('complementary');
     expect(within(pane).getByRole('button', { name: '复制' })).toBeInTheDocument();
     expect(within(pane).queryByRole('button', { name: '+ 术语' })).not.toBeInTheDocument();
+    expect(putTranslation).not.toHaveBeenCalled();
+    expect(saveHistory).not.toHaveBeenCalled();
+  });
+
+  it('stop during loading aborts before the first delta', async () => {
+    configByok();
+    chatStream.mockImplementation(({ signal }) => new Promise((resolve, reject) => {
+      signal.addEventListener('abort', () => reject(new DOMException('已中止', 'AbortError')));
+    }));
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: '流式书' }));
+    await screen.findAllByTestId('sentence');
+
+    await userEvent.click(screen.getAllByTestId('sentence')[0]);
+    await screen.findByText(/正在翻译/);
+    await userEvent.click(screen.getByRole('button', { name: '停止' }));
+
+    await screen.findByText('已停止，译文可能不完整。');
+    const pane = screen.getByRole('complementary');
+    expect(within(pane).queryByRole('button', { name: '复制' })).not.toBeInTheDocument();
     expect(putTranslation).not.toHaveBeenCalled();
     expect(saveHistory).not.toHaveBeenCalled();
   });

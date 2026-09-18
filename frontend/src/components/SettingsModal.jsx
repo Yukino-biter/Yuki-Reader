@@ -56,7 +56,9 @@ export default function SettingsModal({ open, initialTab, settings, byok, onClos
       ...prev,
       provider: id,
       baseUrl: p.baseUrl,
-      model: p.model
+      model: p.model,
+      // key 跟随提供商：带出该提供商存过的 key，没有则清空
+      apiKey: (prev.apiKeys && prev.apiKeys[id]) || ''
     }));
   };
 

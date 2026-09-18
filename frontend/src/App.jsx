@@ -329,6 +329,7 @@ export default function App() {
         kind: 'translation',
         original: text,
         status: 'loading',
+        startedAt: Date.now(),
         lastAction: { type: 'translate', text, context }
       });
       const runNetwork = () => {
