@@ -21,6 +21,7 @@ import {
 import { clearTokenCache } from './lib/tokenize.js';
 import { clearForBook } from './lib/tokenCache.js';
 import { translationCacheKey, getTranslation, putTranslation } from './lib/translationCache.js';
+import { loadHistory, saveHistory } from './lib/translationHistory.js';
 import { getGlossary, saveGlossary, glossaryHash, clearGlossary } from './lib/glossary.js';
 import { katakanaTerms } from './lib/kana.js';
 import {
@@ -39,6 +40,8 @@ function sameToken(a, b) {
   return a && b && a.surface === b.surface && a.basic === b.basic && a.reading === b.reading;
 }
 
+const HISTORY_LIMIT = 50;
+
 export default function App() {
   const [route, setRoute] = useState('welcome');
   const [book, setBook] = useState(null);
@@ -53,6 +56,17 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [history, setHistory] = useState([]);
   const [historyView, setHistoryView] = useState(false);
+
+  // 历史持久化（规格 §4）：挂载时从 IndexedDB 恢复
+  useEffect(() => {
+    let alive = true;
+    loadHistory().then((rows) => {
+      if (alive) setHistory(rows);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [glossary, setGlossary] = useState([]);
   const [glossaryPrefill, setGlossaryPrefill] = useState([]);
   const sidebarRef = useRef(sidebar);
@@ -251,10 +265,12 @@ export default function App() {
   const pushHistory = useCallback((original, result) => {
     setHistory((prev) => {
       const rest = prev.filter((h) => h.original !== original);
-      return [
+      const next = [
         { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, original, result, at: Date.now() },
         ...rest
-      ].slice(0, 20);
+      ].slice(0, HISTORY_LIMIT);
+      saveHistory(next);
+      return next;
     });
   }, []);
 
