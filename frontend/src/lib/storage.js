@@ -113,7 +113,8 @@ const STORE = 'books';
 const TOKEN_CACHE_STORE = 'token-cache';
 const TRANSLATION_CACHE_STORE = 'translation-cache';
 const GLOSSARY_STORE = 'glossaries';
-const DB_VERSION = 3;
+const TRANSLATION_HISTORY_STORE = 'translation-history';
+const DB_VERSION = 4;
 
 export function openDb() {
   return new Promise((resolve, reject) => {
@@ -132,6 +133,9 @@ export function openDb() {
       }
       if (!db.objectStoreNames.contains(GLOSSARY_STORE)) {
         db.createObjectStore(GLOSSARY_STORE, { keyPath: 'bookId' });
+      }
+      if (!db.objectStoreNames.contains(TRANSLATION_HISTORY_STORE)) {
+        db.createObjectStore(TRANSLATION_HISTORY_STORE, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
