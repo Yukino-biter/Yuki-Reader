@@ -150,12 +150,13 @@ export default function ReaderView({ book, settings, onWord, onTranslate, onTran
     onTranslate(text, previousSentences(flatSentences, index));
   };
 
-  const handlePlainMouseUp = (e) => {
+  // 拖选与点句同规则带上文（规格 §5）：以上下文取自 mouseup 所在句的前两句
+  const handlePlainMouseUp = (index) => (e) => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) return;
     const text = selection.toString();
     if (!text.trim()) return;
-    onTranslateSelection(text);
+    onTranslateSelection(text, previousSentences(flatSentences, index));
     selection.removeAllRanges();
   };
 
@@ -218,7 +219,7 @@ export default function ReaderView({ book, settings, onWord, onTranslate, onTran
                         tokens={tokens}
                         onWord={onWord}
                         onSentence={(text) => onTranslate(text, context)}
-                        onSelection={onTranslateSelection}
+                        onSelection={(text) => onTranslateSelection(text, context)}
                         showFurigana={settings.showFurigana}
                       />
                     ) : (
@@ -227,7 +228,7 @@ export default function ReaderView({ book, settings, onWord, onTranslate, onTran
                         className="sentence sentence-plain"
                         data-testid="sentence"
                         onClick={() => handlePlainSentenceClick(s, idx)}
-                        onMouseUp={handlePlainMouseUp}
+                        onMouseUp={handlePlainMouseUp(idx)}
                       >
                         {s}
                       </div>
